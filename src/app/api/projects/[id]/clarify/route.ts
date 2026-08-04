@@ -93,29 +93,64 @@ export async function POST(
     }
     messages.push({ role: 'user', content: userMessageContent });
 
-    const response = await chatCompletion(llmConfig, messages);
-    let aiResponseContent = response.choices[0]?.message?.content || '';
-
-    // Parse structured JSON response (questions array with suggested_answers)
+    // Retry loop with validation for structured questions (min 3 on first turn)
+    let aiResponseContent = '';
     let parsedQuestions: any[] = [];
     let isStructured = false;
-    try {
-      // Extract JSON from markdown code blocks if present
-      const jsonMatch = aiResponseContent.match(/```json\s*([\s\S]*?)\s*```/) || aiResponseContent.match(/\[[\s\S]*\]/);
-      const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : aiResponseContent;
-      parsedQuestions = JSON.parse(jsonStr.trim());
-      isStructured = Array.isArray(parsedQuestions) && parsedQuestions.length > 0;
-    } catch {
-      // Not JSON — keep as plain text
-    }
+    let attempts = 0;
+    const maxAttempts = 3;
+    const isFirstRound = !history || history.length === 0;
 
-    // Guard: model bias langsung generate PRD. Kalau output keliatan PRD (heading markdown / terlalu panjang),
-    // anggap sudah cukup jelas dan ganti dg sentinel biar history clarify tetap bersih.
-    const looksLikePrd = /^#{1,3}\s/m.test(aiResponseContent) || (!isStructured && aiResponseContent.length > 600);
-    if (looksLikePrd) {
-      aiResponseContent = 'READY_TO_GENERATE_PRD';
-      parsedQuestions = [];
-      isStructured = false;
+    while (attempts < maxAttempts) {
+      attempts++;
+      
+      const response = await chatCompletion(llmConfig, messages, { 
+        response_format: { type: "json_object" } 
+      });
+      aiResponseContent = response.choices[0]?.message?.content || '';
+
+      // Parse structured JSON response (questions array with suggested_answers)
+      try {
+        // Extract JSON from markdown code blocks if present
+        const jsonMatch = aiResponseContent.match(/```json\s*([\s\S]*?)\s*```/) || aiResponseContent.match(/\[[\s\S]*\]/);
+        const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : aiResponseContent;
+        parsedQuestions = JSON.parse(jsonStr.trim());
+        isStructured = Array.isArray(parsedQuestions) && parsedQuestions.length > 0;
+      } catch {
+        // Not JSON — keep as plain text
+        parsedQuestions = [];
+        isStructured = false;
+      }
+
+      // Guard: model bias langsung generate PRD. Kalau output keliatan PRD (heading markdown / terlalu panjang),
+      // anggap sudah cukup jelas dan ganti dg sentinel biar history clarify tetap bersih.
+      // CRITICAL: Skip this check on first turn - we NEED questions on first round, even if long.
+      const looksLikePrd = !isFirstRound && (/^#{1,3}\s/m.test(aiResponseContent) || (!isStructured && aiResponseContent.length > 600));
+      if (looksLikePrd) {
+        aiResponseContent = 'READY_TO_GENERATE_PRD';
+        parsedQuestions = [];
+        isStructured = false;
+      }
+
+      // Validation: first turn MUST produce structured JSON with minimum 3 questions
+      const needsRetry = isFirstRound && attempts < maxAttempts && (
+        !isStructured || // AI didn't return JSON format at all
+        parsedQuestions.length < 3 // AI returned JSON but <3 questions
+      );
+      
+      if (needsRetry) {
+        let reminder = '';
+        if (!isStructured) {
+          reminder = `Response sebelumnya BUKAN format JSON array. WAJIB output format JSON array yang dimulai dengan '['. Contoh lengkap:\n[\n  {"category":"Workflow & Approval","question":"...","suggested_answers":["...","...","Custom (tulis sendiri)"]}\n]\nMinimal 3 pertanyaan. Output langsung JSON array, JANGAN pakai code fence.`;
+        } else {
+          reminder = `Response sebelumnya hanya ${parsedQuestions.length} pertanyaan. WAJIB minimal 3 pertanyaan dalam format JSON array. Ulangi dengan 3-8 pertanyaan sekaligus.`;
+        }
+        messages.push({ role: 'user', content: reminder });
+        continue; // Retry
+      }
+
+      // Validation passed, or retries exhausted, or not first round
+      break;
     }
 
     // Save user message
@@ -142,6 +177,15 @@ export async function POST(
       .select('*', { count: 'exact', head: true })
       .eq('project_id', id)
       .eq('role', 'ai');
+
+    // SAFEGUARD: NEVER allow READY on first AI turn — force minimum 1 clarification round
+    const isFirstTurn = (count || 0) <= 1;
+    if (isFirstTurn && aiResponseContent === 'READY_TO_GENERATE_PRD') {
+      // Model tried to skip questions — reject and force questions
+      return NextResponse.json({ 
+        error: 'AI harus memberikan minimal 1 pertanyaan klarifikasi. Coba lagi atau skip manual.' 
+      }, { status: 500 });
+    }
 
     if (count && count >= 5) {
       await supabase.from('projects').update({ status: 'klarifikasi' }).eq('id', id);

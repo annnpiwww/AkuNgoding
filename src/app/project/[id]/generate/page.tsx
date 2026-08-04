@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect, use, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/Toast'
 import ReactMarkdown from 'react-markdown'
@@ -10,10 +10,28 @@ const SECTIONS = [
   { id: 'ringkasan', label: 'Ringkasan Eksekutif' },
   { id: 'masalah', label: 'Masalah & Tujuan' },
   { id: 'pengguna', label: 'Target Pengguna' },
+  { id: 'scope', label: 'Scope' },
+  { id: 'mvp-roadmap', label: 'MVP Roadmap' },
+  { id: 'roles', label: 'Roles & Permissions' },
   { id: 'fitur', label: 'Core Features' },
-  { id: 'non-fungsional', label: 'Non-Functional Requirements' },
+  { id: 'business-rules', label: 'Business Rules' },
   { id: 'flow', label: 'User Flow' },
-  { id: 'metrik', label: 'Metrik Kesuksesan' }
+  { id: 'ui-requirements', label: 'UI Requirements' },
+  { id: 'state-diagrams', label: 'State Diagrams' },
+  { id: 'data-model', label: 'Data Model' },
+  { id: 'database', label: 'Database Schema & Constraints' },
+  { id: 'api', label: 'API Requirements' },
+  { id: 'validation', label: 'Validation Rules' },
+  { id: 'dependencies', label: 'Dependencies & Integrasi' },
+  { id: 'non-fungsional', label: 'Non-Functional Requirements' },
+  { id: 'assumptions', label: 'Assumptions & Constraints' },
+  { id: 'edge-cases', label: 'Edge Cases & Error Handling' },
+  { id: 'risks', label: 'Risks & Mitigation' },
+  { id: 'testing', label: 'Testing Strategy' },
+  { id: 'dod', label: 'Definition of Done' },
+  { id: 'metrik', label: 'Metrik Kesuksesan' },
+  { id: 'open-questions', label: 'Open Questions' },
+  { id: 'future', label: 'Future Enhancements' }
 ]
 
 export default function GeneratePage({ params }: { params: Promise<{ id: string }> }) {
@@ -26,24 +44,7 @@ export default function GeneratePage({ params }: { params: Promise<{ id: string 
   const router = useRouter()
   const { showToast } = useToast()
 
-  useEffect(() => {
-    startGeneration()
-  }, [])
-
-  useEffect(() => {
-    // Detect section based on markdown headings
-    const lines = content.split('\n')
-    let foundHeadings = 0
-    lines.forEach(line => {
-      if (line.startsWith('## ')) foundHeadings++
-    })
-    
-    if (foundHeadings > 0 && foundHeadings <= SECTIONS.length) {
-      setCurrentSectionIndex(foundHeadings - 1)
-    }
-  }, [content])
-
-  const startGeneration = async () => {
+  const startGeneration = useCallback(async () => {
     setIsGenerating(true)
     setError(null)
     
@@ -78,7 +79,24 @@ export default function GeneratePage({ params }: { params: Promise<{ id: string 
       setIsGenerating(false)
       showToast('Gagal generate PRD', 'error')
     }
-  }
+  }, [id, showToast])
+
+  useEffect(() => {
+    startGeneration()
+  }, [startGeneration])
+
+  useEffect(() => {
+    // Detect section based on markdown headings
+    const lines = content.split('\n')
+    let foundHeadings = 0
+    lines.forEach(line => {
+      if (line.startsWith('## ')) foundHeadings++
+    })
+    
+    if (foundHeadings > 0 && foundHeadings <= SECTIONS.length) {
+      setCurrentSectionIndex(foundHeadings - 1)
+    }
+  }, [content])
 
   const handleFinish = () => {
     router.push(`/project/${id}/edit`)
@@ -108,6 +126,20 @@ export default function GeneratePage({ params }: { params: Promise<{ id: string 
         <p className="text-slate-400 text-sm">
           {isGenerating ? 'AI sedang menulis PRD berdasarkan informasi yang diberikan.' : error ? 'Terjadi kesalahan saat memproses data.' : 'Draft PRD berhasil dibuat dan siap di-review.'}
         </p>
+        
+        {!isGenerating && !error && (
+          <div className="mt-6">
+            <button
+              onClick={handleFinish}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-8 py-3 text-base font-semibold transition-all shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 flex items-center justify-center gap-2 mx-auto"
+            >
+              Lihat PRD Lengkap
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
 
       {error ? (

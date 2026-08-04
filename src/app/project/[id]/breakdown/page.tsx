@@ -4,8 +4,9 @@ import { useState, useEffect, use, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/Toast'
 import { createClient } from '@/lib/supabase/client'
+import TaskPromptTutorial from '@/components/TaskPromptTutorial'
 
-type TaskStatus = 'todo' | 'in_progress' | 'done'
+type TaskStatus = 'todo' | 'in_progress' | 'done' | 'failed'
 
 interface Task {
   id: string
@@ -33,12 +34,14 @@ const STATUS_META: Record<TaskStatus, { label: string; cls: string; dot: string 
   todo: { label: 'Todo', cls: 'bg-[#1a1a2e] border-[#2a2a3e] text-slate-300', dot: 'bg-slate-500' },
   in_progress: { label: 'In Progress', cls: 'bg-amber-500/10 border-amber-500/30 text-amber-300', dot: 'bg-amber-500' },
   done: { label: 'Done', cls: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400', dot: 'bg-emerald-500' },
+  failed: { label: 'Failed', cls: 'bg-red-500/10 border-red-500/30 text-red-400', dot: 'bg-red-500' },
 }
 
 const NEXT_STATUS: Record<TaskStatus, TaskStatus> = {
   todo: 'in_progress',
   in_progress: 'done',
   done: 'todo',
+  failed: 'todo',
 }
 
 export default function BreakdownPage({ params }: { params: Promise<{ id: string }> }) {
@@ -62,6 +65,9 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
   const [mcp, setMcp] = useState<MCPStatus | null>(null)
   const [checkingMcp, setCheckingMcp] = useState(false)
   const [showMcp, setShowMcp] = useState(false)
+
+  const [generatingAll, setGeneratingAll] = useState(false)
+  const [showTutorial, setShowTutorial] = useState(false)
 
   const channelRef = useRef<any>(null)
 
@@ -225,6 +231,25 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
     }
   }
 
+  const generateAllPrompts = async () => {
+    setGeneratingAll(true)
+    try {
+      const res = await fetch(`/api/projects/${id}/tasks/generate-all-prompts`, {
+        method: 'POST'
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Gagal generate prompts')
+      
+      showToast(data.message || `${data.generated} prompts berhasil digenerate`, 'success')
+      await loadTasks() // Reload tasks dengan prompts baru
+      setShowTutorial(true) // Show tutorial after successful generation
+    } catch (e: any) {
+      showToast(e.message || 'Gagal generate all prompts', 'error')
+    } finally {
+      setGeneratingAll(false)
+    }
+  }
+
   return (
     <div className="h-[calc(100vh-120px)] flex flex-col gap-4">
       {/* Header */}
@@ -238,6 +263,13 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
           <span className="text-sm font-medium text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
             {totalDone}/{tasks.length} done
           </span>
+          <button
+            onClick={generateAllPrompts}
+            disabled={generatingAll || tasks.length === 0}
+            className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition-all disabled:opacity-50 whitespace-nowrap"
+          >
+            {generatingAll ? 'Generating...' : '⚡ Generate All Prompts'}
+          </button>
           <button
             onClick={checkMcp}
             disabled={checkingMcp}
@@ -287,70 +319,154 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
         </div>
       )}
 
-      {/* Task list */}
-      <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-        {loadingTasks ? (
-          <div className="text-center text-slate-500 mt-10">Memuat tasks...</div>
-        ) : visible.length === 0 ? (
-          <div className="text-center text-slate-500 mt-10">
-            Belum ada task. Klik &quot;+ Task&quot; untuk menambah task breakdown.
+      {/* 4-Column Task Board */}
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-hidden">
+        {/* Column 1: Task (todo) */}
+        <div className="flex flex-col h-full">
+          <div className="bg-[#12121a] border border-[#2a2a3e] rounded-t-xl px-4 py-3 flex items-center justify-between">
+            <h3 className="font-semibold text-white flex items-center gap-2">
+              <span className="text-lg">📝</span>
+              Task
+            </h3>
+            <span className="text-xs text-slate-400 bg-slate-500/10 px-2 py-1 rounded">
+              {visible.filter(t => t.status === 'todo').length}
+            </span>
           </div>
-        ) : (
-          visible.map((task) => {
-            const meta = STATUS_META[task.status]
-            return (
-              <div
-                key={task.id}
-                className="bg-[#12121a] border border-[#2a2a3e] hover:border-emerald-500/30 transition-all rounded-xl p-4 flex items-start gap-3"
-              >
-                {/* cycle status */}
-                <button
-                  onClick={() => cycleStatus(task)}
-                  title={`Ubah status (sekarang: ${meta.label})`}
-                  className={`inline-flex items-center px-2.5 py-1 rounded-full border gap-2 text-xs font-medium transition-all ${meta.cls}`}
-                >
-                  <span className={`w-2 h-2 rounded-full ${meta.dot}`} />
-                  {meta.label}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500 bg-[#1a1a2e] border border-[#2a2a3e] px-2 py-0.5 rounded-md">
-                      {task.feature_name}
-                    </span>
-                    {task.prompt && (
-                      <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">prompt ✓</span>
-                    )}
+          <div className="flex-1 overflow-y-auto bg-[#0a0a0f] border-x border-b border-[#2a2a3e] rounded-b-xl p-3 space-y-2">
+            {loadingTasks ? (
+              <div className="text-center text-slate-500 text-sm mt-4">Loading...</div>
+            ) : visible.filter(t => t.status === 'todo').length === 0 ? (
+              <div className="text-center text-slate-500 text-sm mt-4">Tidak ada task</div>
+            ) : (
+              visible.filter(t => t.status === 'todo').map((task) => (
+                <div key={task.id} className="bg-[#12121a] border border-[#2a2a3e] hover:border-emerald-500/30 transition-all rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs text-slate-500 bg-[#1a1a2e] px-2 py-0.5 rounded">{task.feature_name}</span>
+                    {task.prompt && <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">✓</span>}
                   </div>
-                  <h3 className="font-semibold text-white mt-1">{task.title}</h3>
-                  {task.detail && <p className="text-slate-400 text-sm mt-0.5 whitespace-pre-wrap">{task.detail}</p>}
+                  <h4 className="text-sm font-medium text-white mb-1">{task.title}</h4>
+                  {task.detail && <p className="text-xs text-slate-400 line-clamp-2">{task.detail}</p>}
+                  <div className="flex items-center gap-2 mt-3">
+                    <button onClick={() => cycleStatus(task)} className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded transition-all">Start</button>
+                    <button onClick={() => generatePrompt(task)} disabled={promptingId === task.id} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded transition-all disabled:opacity-50">
+                      {promptingId === task.id ? '...' : task.prompt ? 'View' : 'Gen'}
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => generatePrompt(task)}
-                    disabled={promptingId === task.id}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50 whitespace-nowrap"
-                  >
-                    {promptingId === task.id ? 'Generate...' : task.prompt ? 'Prompt Agent' : 'Generate Prompt'}
-                  </button>
-                  <button
-                    onClick={() => deleteTask(task)}
-                    title="Hapus task"
-                    className="text-slate-500 hover:text-red-400 transition-colors p-1"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                  </button>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Column 2: Dikerjakan (in_progress) */}
+        <div className="flex flex-col h-full">
+          <div className="bg-[#12121a] border border-amber-500/30 rounded-t-xl px-4 py-3 flex items-center justify-between">
+            <h3 className="font-semibold text-amber-300 flex items-center gap-2">
+              <span className="text-lg">⚡</span>
+              Dikerjakan
+            </h3>
+            <span className="text-xs text-amber-300 bg-amber-500/10 px-2 py-1 rounded">
+              {visible.filter(t => t.status === 'in_progress').length}
+            </span>
+          </div>
+          <div className="flex-1 overflow-y-auto bg-[#0a0a0f] border-x border-b border-amber-500/30 rounded-b-xl p-3 space-y-2">
+            {loadingTasks ? (
+              <div className="text-center text-slate-500 text-sm mt-4">Loading...</div>
+            ) : visible.filter(t => t.status === 'in_progress').length === 0 ? (
+              <div className="text-center text-slate-500 text-sm mt-4">Tidak ada task</div>
+            ) : (
+              visible.filter(t => t.status === 'in_progress').map((task) => (
+                <div key={task.id} className="bg-[#12121a] border border-amber-500/30 hover:border-amber-500/50 transition-all rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded">{task.feature_name}</span>
+                    {task.prompt && <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">✓</span>}
+                  </div>
+                  <h4 className="text-sm font-medium text-white mb-1">{task.title}</h4>
+                  {task.detail && <p className="text-xs text-slate-400 line-clamp-2">{task.detail}</p>}
+                  <div className="flex items-center gap-2 mt-3">
+                    <button onClick={() => cycleStatus(task)} className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded transition-all">Done</button>
+                    <button onClick={() => generatePrompt(task)} disabled={promptingId === task.id} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded transition-all disabled:opacity-50">
+                      {promptingId === task.id ? '...' : task.prompt ? 'View' : 'Gen'}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )
-          })
-        )}
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Column 3: Selesai (done) */}
+        <div className="flex flex-col h-full">
+          <div className="bg-[#12121a] border border-emerald-500/30 rounded-t-xl px-4 py-3 flex items-center justify-between">
+            <h3 className="font-semibold text-emerald-300 flex items-center gap-2">
+              <span className="text-lg">✅</span>
+              Selesai
+            </h3>
+            <span className="text-xs text-emerald-300 bg-emerald-500/10 px-2 py-1 rounded">
+              {visible.filter(t => t.status === 'done').length}
+            </span>
+          </div>
+          <div className="flex-1 overflow-y-auto bg-[#0a0a0f] border-x border-b border-emerald-500/30 rounded-b-xl p-3 space-y-2">
+            {loadingTasks ? (
+              <div className="text-center text-slate-500 text-sm mt-4">Loading...</div>
+            ) : visible.filter(t => t.status === 'done').length === 0 ? (
+              <div className="text-center text-slate-500 text-sm mt-4">Tidak ada task</div>
+            ) : (
+              visible.filter(t => t.status === 'done').map((task) => (
+                <div key={task.id} className="bg-[#12121a] border border-emerald-500/30 hover:border-emerald-500/50 transition-all rounded-lg p-3 opacity-75">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded">{task.feature_name}</span>
+                    {task.prompt && <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">✓</span>}
+                  </div>
+                  <h4 className="text-sm font-medium text-white mb-1">{task.title}</h4>
+                  {task.detail && <p className="text-xs text-slate-400 line-clamp-2">{task.detail}</p>}
+                  <div className="flex items-center gap-2 mt-3">
+                    <button onClick={() => generatePrompt(task)} disabled={promptingId === task.id} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded transition-all disabled:opacity-50">
+                      {promptingId === task.id ? '...' : task.prompt ? 'View' : 'Gen'}
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Column 4: Gagal (failed) */}
+        <div className="flex flex-col h-full">
+          <div className="bg-[#12121a] border border-red-500/30 rounded-t-xl px-4 py-3 flex items-center justify-between">
+            <h3 className="font-semibold text-red-300 flex items-center gap-2">
+              <span className="text-lg">❌</span>
+              Gagal
+            </h3>
+            <span className="text-xs text-red-300 bg-red-500/10 px-2 py-1 rounded">
+              {visible.filter(t => t.status === 'failed').length}
+            </span>
+          </div>
+          <div className="flex-1 overflow-y-auto bg-[#0a0a0f] border-x border-b border-red-500/30 rounded-b-xl p-3 space-y-2">
+            {loadingTasks ? (
+              <div className="text-center text-slate-500 text-sm mt-4">Loading...</div>
+            ) : visible.filter(t => (t.status as string) === 'failed').length === 0 ? (
+              <div className="text-center text-slate-500 text-sm mt-4">Tidak ada task</div>
+            ) : (
+              visible.filter(t => (t.status as string) === 'failed').map((task) => (
+                <div key={task.id} className="bg-[#12121a] border border-red-500/30 hover:border-red-500/50 transition-all rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs text-red-300 bg-red-500/20 px-2 py-0.5 rounded">{task.feature_name}</span>
+                    {task.prompt && <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">✓</span>}
+                  </div>
+                  <h4 className="text-sm font-medium text-white mb-1">{task.title}</h4>
+                  {task.detail && <p className="text-xs text-slate-400 line-clamp-2">{task.detail}</p>}
+                  <div className="flex items-center gap-2 mt-3">
+                    <button onClick={() => cycleStatus(task)} className="text-xs bg-amber-600 hover:bg-amber-500 text-white px-2 py-1 rounded transition-all">Retry</button>
+                    <button onClick={() => generatePrompt(task)} disabled={promptingId === task.id} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded transition-all disabled:opacity-50">
+                      {promptingId === task.id ? '...' : task.prompt ? 'View' : 'Gen'}
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
 
       {/* ===== Modal Tambah Task ===== */}
@@ -522,6 +638,13 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
           </div>
         </div>
       )}
+      
+      {/* ===== Tutorial Modal ===== */}
+      <TaskPromptTutorial 
+        isOpen={showTutorial}
+        onClose={() => setShowTutorial(false)}
+        totalTasks={tasks.length}
+      />
     </div>
   )
 }

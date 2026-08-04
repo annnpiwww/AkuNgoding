@@ -178,9 +178,11 @@ export default function ClarifyPage({ params }: { params: Promise<{ id: string }
           <h1 className="text-xl font-bold text-white truncate max-w-md">{projectTitle}</h1>
           <p className="text-slate-400 text-sm">Sesi Klarifikasi</p>
         </div>
-        <div className="bg-[#1a1a2e] border border-[#2a2a3e] px-3 py-1 rounded-full flex items-center gap-2">
-          <span className="text-xs font-medium text-emerald-400">Pertanyaan {Math.min(questionCount, maxQuestions)}/{maxQuestions}</span>
-        </div>
+        {!isReady && (
+          <div className="bg-[#1a1a2e] border border-[#2a2a3e] px-3 py-1 rounded-full flex items-center gap-2">
+            <span className="text-xs font-medium text-emerald-400">Pertanyaan {Math.min(questionCount, maxQuestions)}/{maxQuestions}</span>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 bg-[#12121a] border border-[#2a2a3e] rounded-xl overflow-hidden flex flex-col shadow-lg">

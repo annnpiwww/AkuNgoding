@@ -23,9 +23,19 @@ export interface ChatCompletionResponse {
 export async function chatCompletion(
   config: LlmConfig,
   messages: ChatMessage[],
-  options?: { temperature?: number; max_tokens?: number }
+  options?: { temperature?: number; max_tokens?: number; response_format?: { type: "json_object" | "text" } }
 ): Promise<ChatCompletionResponse> {
   const url = `${config.baseUrl.replace(/\/$/, '')}/chat/completions`
+  
+  const body: any = {
+    model: config.model,
+    messages,
+    temperature: options?.temperature ?? 0.7,
+    stream: false,
+  };
+  
+  if (options?.max_tokens) body.max_tokens = options.max_tokens;
+  if (options?.response_format) body.response_format = options.response_format;
   
   const response = await fetch(url, {
     method: 'POST',
@@ -33,13 +43,7 @@ export async function chatCompletion(
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${config.apiKey}`,
     },
-    body: JSON.stringify({
-      model: config.model,
-      messages,
-      temperature: options?.temperature ?? 0.7,
-      max_tokens: options?.max_tokens,
-      stream: false,
-    }),
+    body: JSON.stringify(body),
   })
 
   if (!response.ok) {
