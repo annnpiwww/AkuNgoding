@@ -96,13 +96,26 @@ export async function POST(
     const response = await chatCompletion(llmConfig, messages);
     let aiResponseContent = response.choices[0]?.message?.content || '';
 
-    // Guard: model `PRD` bias langsung generate PRD saat clarify. Kalau output
-    // keliatan PRD (heading markdown / terlalu panjang), anggap sudah cukup
-    // jelas dan ganti dg sentinel biar history clarify tetap bersih (context
-    // yang nanti dipakai generate-prd tidak terkontaminasi blok PRD).
-    const looksLikePrd = /^#{1,3}\s/m.test(aiResponseContent) || aiResponseContent.length > 400;
+    // Parse structured JSON response (questions array with suggested_answers)
+    let parsedQuestions: any[] = [];
+    let isStructured = false;
+    try {
+      // Extract JSON from markdown code blocks if present
+      const jsonMatch = aiResponseContent.match(/```json\s*([\s\S]*?)\s*```/) || aiResponseContent.match(/\[[\s\S]*\]/);
+      const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : aiResponseContent;
+      parsedQuestions = JSON.parse(jsonStr.trim());
+      isStructured = Array.isArray(parsedQuestions) && parsedQuestions.length > 0;
+    } catch {
+      // Not JSON — keep as plain text
+    }
+
+    // Guard: model bias langsung generate PRD. Kalau output keliatan PRD (heading markdown / terlalu panjang),
+    // anggap sudah cukup jelas dan ganti dg sentinel biar history clarify tetap bersih.
+    const looksLikePrd = /^#{1,3}\s/m.test(aiResponseContent) || (!isStructured && aiResponseContent.length > 600);
     if (looksLikePrd) {
       aiResponseContent = 'READY_TO_GENERATE_PRD';
+      parsedQuestions = [];
+      isStructured = false;
     }
 
     // Save user message
@@ -114,7 +127,7 @@ export async function POST(
       });
     }
 
-    // Save AI response
+    // Save AI response (raw content for history)
     const { data: aiMessage, error: aiError } = await supabase.from('clarification_messages').insert({
       project_id: id,
       role: 'ai',
@@ -138,6 +151,7 @@ export async function POST(
 
     return NextResponse.json({
       message: aiMessage,
+      questions: isStructured ? parsedQuestions : null,
       ai_message_count: count || 0,
       readyToGenerate: !!readyToGenerate,
     });

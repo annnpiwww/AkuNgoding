@@ -11,10 +11,18 @@ interface Message {
   timestamp: string
 }
 
+interface Question {
+  category: string
+  question: string
+  suggested_answers: string[]
+}
+
 export default function ClarifyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState('')
+  const [questions, setQuestions] = useState<Question[]>([])
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({})
+  const [customAnswers, setCustomAnswers] = useState<Record<number, string>>({})
   const [isLoading, setIsLoading] = useState(false)
   const [projectTitle, setProjectTitle] = useState('Loading...')
   const [questionCount, setQuestionCount] = useState(0)
@@ -31,7 +39,7 @@ export default function ClarifyPage({ params }: { params: Promise<{ id: string }
 
   useEffect(() => {
     scrollToBottom()
-  }, [messages])
+  }, [messages, questions])
 
   useEffect(() => {
     fetchInitialData()
@@ -48,11 +56,9 @@ export default function ClarifyPage({ params }: { params: Promise<{ id: string }
           const filtered = data.messages.filter((m: any) => m.content !== 'READY_TO_GENERATE_PRD')
           setMessages(filtered)
           if (filtered.length !== data.messages.length) setIsReady(true)
-          // Count AI questions
           const qCount = filtered.filter((m: any) => m.role === 'ai').length
           setQuestionCount(qCount)
         } else {
-          // Trigger first question
           triggerNextQuestion()
         }
       }
@@ -72,14 +78,20 @@ export default function ClarifyPage({ params }: { params: Promise<{ id: string }
       
       if (res.ok) {
         const data = await res.json()
-        if (data.readyToGenerate || data.questionCount >= maxQuestions) {
+        if (data.readyToGenerate || data.ai_message_count >= maxQuestions) {
           setIsReady(true)
-          setQuestionCount(data.questionCount ?? data.ai_message_count ?? 0)
+          setQuestionCount(data.ai_message_count ?? 0)
           return
         }
         
-        setMessages(prev => [...prev, data.message])
-        setQuestionCount(data.questionCount ?? data.ai_message_count ?? 0)
+        if (data.questions && Array.isArray(data.questions) && data.questions.length > 0) {
+          setQuestions(data.questions)
+          setSelectedAnswers({})
+          setCustomAnswers({})
+        } else {
+          setMessages(prev => [...prev, data.message])
+        }
+        setQuestionCount(data.ai_message_count ?? 0)
       } else {
         const error = await res.json()
         showToast(error.error || 'Gagal mendapatkan pertanyaan', 'error')
@@ -91,26 +103,42 @@ export default function ClarifyPage({ params }: { params: Promise<{ id: string }
     }
   }
 
-  const handleSend = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault()
-    if (!input.trim() || isLoading || isReady) return
+  const handleSubmitAnswers = async () => {
+    const answers: string[] = []
+    questions.forEach((q, idx) => {
+      const selected = selectedAnswers[idx]
+      if (selected === 'Custom (tulis sendiri)') {
+        const custom = customAnswers[idx]?.trim()
+        if (custom) {
+          answers.push(`**${q.question}**\n${custom}`)
+        }
+      } else if (selected) {
+        answers.push(`**${q.question}**\n${selected}`)
+      }
+    })
 
+    if (answers.length === 0) {
+      showToast('Pilih atau tulis jawaban minimal 1 pertanyaan', 'error')
+      return
+    }
+
+    const messageContent = answers.join('\n\n')
+    setIsLoading(true)
+    setQuestions([])
+    
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim(),
+      content: messageContent,
       timestamp: new Date().toISOString()
     }
-
     setMessages(prev => [...prev, userMessage])
-    setInput('')
-    setIsLoading(true)
-    
+
     try {
       const res = await fetch(`/api/projects/${id}/clarify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage.content })
+        body: JSON.stringify({ message: messageContent })
       })
       
       if (res.ok) {
@@ -119,7 +147,14 @@ export default function ClarifyPage({ params }: { params: Promise<{ id: string }
           setIsReady(true)
           return
         }
-        setMessages(prev => [...prev, data.message])
+        
+        if (data.questions && Array.isArray(data.questions) && data.questions.length > 0) {
+          setQuestions(data.questions)
+          setSelectedAnswers({})
+          setCustomAnswers({})
+        } else {
+          setMessages(prev => [...prev, data.message])
+        }
         setQuestionCount(data.ai_message_count ?? 0)
       } else {
         const error = await res.json()
@@ -174,6 +209,56 @@ export default function ClarifyPage({ params }: { params: Promise<{ id: string }
             </div>
           ))}
           
+          {/* Structured Questions UI */}
+          {questions.length > 0 && !isLoading && (
+            <div className="space-y-6">
+              {questions.map((q, qIdx) => (
+                <div key={qIdx} className="bg-[#1a1a2e] border border-[#2a2a3e] rounded-xl p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded">
+                      {q.category}
+                    </span>
+                    <span className="text-xs text-slate-500">Pertanyaan {qIdx + 1}</span>
+                  </div>
+                  <p className="text-white font-medium mb-4">{q.question}</p>
+                  <div className="space-y-2">
+                    {q.suggested_answers.map((ans, aIdx) => {
+                      const isCustom = ans === 'Custom (tulis sendiri)'
+                      const isSelected = selectedAnswers[qIdx] === ans
+                      return (
+                        <div key={aIdx}>
+                          <label className={`flex items-start gap-3 p-3 rounded-lg border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-emerald-500/10 border-emerald-500/50'
+                              : 'bg-[#0a0a0f] border-[#2a2a3e] hover:border-emerald-500/30'
+                          }`}>
+                            <input
+                              type="radio"
+                              name={`question-${qIdx}`}
+                              checked={isSelected}
+                              onChange={() => setSelectedAnswers(prev => ({ ...prev, [qIdx]: ans }))}
+                              className="mt-0.5 w-4 h-4 text-emerald-500 border-[#2a2a3e] focus:ring-emerald-500/20"
+                            />
+                            <span className="text-sm text-slate-200 flex-1">{ans}</span>
+                          </label>
+                          {isCustom && isSelected && (
+                            <textarea
+                              value={customAnswers[qIdx] || ''}
+                              onChange={(e) => setCustomAnswers(prev => ({ ...prev, [qIdx]: e.target.value }))}
+                              placeholder="Tulis jawabanmu di sini..."
+                              className="mt-2 w-full bg-[#0a0a0f] border border-[#2a2a3e] focus:border-emerald-500/50 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 outline-none resize-none min-h-[60px]"
+                              rows={2}
+                            />
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {isLoading && (
             <div className="flex justify-start">
               <div className="bg-[#1a1a2e] border border-[#2a2a3e] rounded-2xl rounded-bl-sm px-5 py-4 flex items-center gap-3">
@@ -189,7 +274,7 @@ export default function ClarifyPage({ params }: { params: Promise<{ id: string }
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Area */}
+        {/* Input/Submit Area */}
         <div className="p-4 bg-[#0a0a0f] border-t border-[#2a2a3e]">
           {isReady ? (
             <div className="flex flex-col items-center gap-3 py-4">
@@ -207,49 +292,29 @@ export default function ClarifyPage({ params }: { params: Promise<{ id: string }
                 Generate PRD →
               </button>
             </div>
+          ) : questions.length > 0 ? (
+            <div className="flex items-center justify-between gap-3">
+              <button
+                onClick={handleSkip}
+                className="text-xs text-slate-400 hover:text-emerald-400 transition-colors flex items-center gap-1"
+              >
+                Skip, langsung generate <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+              </button>
+              <button
+                onClick={handleSubmitAnswers}
+                disabled={isLoading || Object.keys(selectedAnswers).length === 0}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:bg-slate-700 flex items-center gap-2"
+              >
+                Kirim Jawaban
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </button>
+            </div>
           ) : (
-            <>
-              <div className="flex justify-between items-center mb-2 px-1">
-                <button
-                  onClick={handleSkip}
-                  className="text-xs text-slate-400 hover:text-emerald-400 transition-colors flex items-center gap-1"
-                >
-                  Skip, langsung generate <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                </button>
-                <span className="text-xs text-slate-500">Pertanyaan {questionCount}/{maxQuestions}</span>
-              </div>
-              <form onSubmit={handleSend} className="relative flex items-end gap-2">
-                {isLoading && (
-                  <div className="absolute -top-5 left-0 text-[11px] text-emerald-400/90 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    AI sedang mengetik jawaban...
-                  </div>
-                )}
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      handleSend()
-                    }
-                  }}
-                  disabled={isLoading}
-                  placeholder={isLoading ? 'Tunggu sebentar, AI sedang berpikir...' : 'Ketik jawabanmu di sini...'}
-                  className="w-full bg-[#12121a] border border-[#2a2a3e] focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 rounded-lg pl-4 pr-12 py-3 text-white placeholder-slate-500 outline-none resize-none max-h-32 min-h-[52px] disabled:opacity-60"
-                  rows={1}
-                />
-                <button
-                  type="submit"
-                  disabled={!input.trim() || isLoading}
-                  className="absolute right-2 bottom-2 p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md transition-colors disabled:opacity-50 disabled:bg-slate-700 disabled:text-slate-400"
-                >
-                  <svg className="w-4 h-4 transform rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                  </svg>
-                </button>
-              </form>
-            </>
+            <div className="flex justify-center py-2">
+              <span className="text-xs text-slate-500">Menunggu pertanyaan dari AI...</span>
+            </div>
           )}
         </div>
       </div>
