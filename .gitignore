@@ -44,3 +44,6 @@ next-env.d.ts
 graphify-out/cache/
 graphify-out/.graphify_python
 graphify-out/.graphify_root
+
+mcp-server/node_modules
+mcp-server/dist
