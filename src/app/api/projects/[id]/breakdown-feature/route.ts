@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getEffectiveUser } from '@/lib/auth-bypass';
 import { getActiveLlmConfig } from '@/lib/api-helpers';
 import { chatCompletion, type ChatMessage } from '@/lib/llm-client';
-import { BREAKDOWN_FEATURE_SYSTEM_PROMPT } from '@/lib/prompts';
+import { BREAKDOWN_FEATURE_SYSTEM_PROMPT, BREAKDOWN_FORMAT_INSTRUCTIONS } from '@/lib/prompts';
 import { appendBreakdown } from '@/lib/markdown-parser';
 
 export async function POST(
@@ -48,7 +48,7 @@ export async function POST(
 
     const messages: ChatMessage[] = [
       { role: 'system', content: BREAKDOWN_FEATURE_SYSTEM_PROMPT },
-      { role: 'user', content: `Current PRD:\n\n${prdDoc.content_markdown}\n\nFeature to Breakdown:\nName: ${feature_name}\nDescription: ${feature_description}` },
+      { role: 'user', content: `${BREAKDOWN_FORMAT_INSTRUCTIONS}\n\nCurrent PRD:\n\n${prdDoc.content_markdown}\n\nFeature to Breakdown:\nName: ${feature_name}\nDescription: ${feature_description}` },
     ];
 
     const response = await chatCompletion(llmConfig, messages);

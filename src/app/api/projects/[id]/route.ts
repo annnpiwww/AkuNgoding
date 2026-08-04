@@ -20,10 +20,49 @@ export async function GET(
       .eq('user_id', user.id)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      // PGRST116 = row not found
+      if (error.code === 'PGRST116' || error.message?.includes('not found')) {
+        return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+      }
+      throw error;
+    }
     if (!data) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
     return NextResponse.json(data);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const supabase = await createClient();
+    const user = await getEffectiveUser(supabase);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const { id } = await params;
+
+    // Ownership check
+    const { data: existing, error: findError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single();
+    if (findError || !existing) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+
+    // Delete child rows explicitly first (safe even if FK cascade is missing)
+    await supabase.from('prd_documents').delete().eq('project_id', id);
+    await supabase.from('clarification_messages').delete().eq('project_id', id);
+
+    const { error } = await supabase.from('projects').delete().eq('id', id).eq('user_id', user.id);
+    if (error) throw error;
+
+    return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

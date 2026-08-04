@@ -52,7 +52,11 @@ export async function POST(
     ];
 
     const response = await chatCompletion(llmConfig, messages);
-    const revisedSectionContent = response.choices[0]?.message?.content || '';
+    let revisedSectionContent = response.choices[0]?.message?.content || '';
+    // Model kerap menyertakan heading section di awal output; replaceSection
+    // sudah menyisipkan heading aslinya sendiri → buang heading dari content.
+    revisedSectionContent = revisedSectionContent.replace(/^#{1,3}\s+.*\n+/i, '');
+    revisedSectionContent = revisedSectionContent.replace(/\n{3,}/g, '\n\n').trim();
 
     const updatedMarkdown = replaceSection(prdDoc.content_markdown, section_name, revisedSectionContent);
 

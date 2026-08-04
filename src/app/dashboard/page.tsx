@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { StatusBadge } from '@/components/StatusBadge'
+import DeleteProjectButton from '@/components/DeleteProjectButton'
 import { Project } from '@/lib/types'
 
 function getNextActionRoute(id: string, status: string) {
@@ -94,16 +95,19 @@ export default async function DashboardPage() {
                     year: 'numeric'
                   })}
                 </span>
-                
-                <Link
-                  href={getNextActionRoute(project.id, project.status)}
-                  className="text-sm font-medium text-emerald-500 hover:text-emerald-400 transition-colors flex items-center gap-1"
-                >
-                  Lanjutkan
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
+
+                <div className="flex items-center gap-3">
+                  <Link
+                    href={getNextActionRoute(project.id, project.status)}
+                    className="text-sm font-medium text-emerald-500 hover:text-emerald-400 transition-colors flex items-center gap-1"
+                  >
+                    Lanjutkan
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                  <DeleteProjectButton projectId={project.id} projectTitle={project.title} />
+                </div>
               </div>
             </div>
           ))}

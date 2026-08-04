@@ -30,7 +30,7 @@ export default function NewProjectPage() {
       const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, raw_idea: rawIdea })
+        body: JSON.stringify({ title, idea_input: rawIdea })
       })
 
       if (res.ok) {

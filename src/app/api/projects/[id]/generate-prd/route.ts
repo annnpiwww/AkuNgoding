@@ -1,9 +1,9 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getEffectiveUser } from '@/lib/auth-bypass';
 import { getActiveLlmConfig } from '@/lib/api-helpers';
 import { chatCompletionStream, type ChatMessage } from '@/lib/llm-client';
-import { GENERATE_PRD_SYSTEM_PROMPT } from '@/lib/prompts';
+import { GENERATE_PRD_SYSTEM_PROMPT, PRD_FORMAT_INSTRUCTIONS } from '@/lib/prompts';
 
 export async function POST(
   req: NextRequest,
@@ -12,7 +12,7 @@ export async function POST(
   try {
     const supabase = await createClient();
     const user = await getEffectiveUser(supabase);
-    if (!user) return new Response('Unauthorized', { status: 401 });
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
 
@@ -23,11 +23,11 @@ export async function POST(
       .eq('user_id', user.id)
       .single();
 
-    if (!project) return new Response('Project not found', { status: 404 });
+    if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
     const llmConfig = await getActiveLlmConfig(user.id);
     if (!llmConfig) {
-      return new Response('Please configure active LLM settings first', { status: 400 });
+      return NextResponse.json({ error: 'Please configure active LLM settings first' }, { status: 400 });
     }
 
     const { data: history } = await supabase
@@ -43,7 +43,7 @@ export async function POST(
 
     const messages: ChatMessage[] = [
       { role: 'system', content: GENERATE_PRD_SYSTEM_PROMPT },
-      { role: 'user', content: `Original Idea:\n${project.idea_input}${clarificationContext}` },
+      { role: 'user', content: `${PRD_FORMAT_INSTRUCTIONS}\n\nProduct Idea:\n${project.idea_input}${clarificationContext}` },
     ];
 
     const sseStream = await chatCompletionStream(llmConfig, messages);
@@ -91,30 +91,40 @@ export async function POST(
           }
         }
 
-        // Save after generation
-        try {
-          const { data: existingDoc } = await supabase
-            .from('prd_documents')
-            .select('id, version')
-            .eq('project_id', id)
-            .single();
+        // Save after generation — only persist if the output is a real PRD,
+        // never a clarifying question, an empty stream, or a broken fragment.
+        const isRealPrd =
+          fullContent.length > 1500 &&
+          /#{1,3}\s*(1\.\s*)?Overview/i.test(fullContent) &&
+          /\n#{1,3}\s+\d+\.\s/.test(fullContent);
 
-          if (existingDoc) {
-            await supabase.from('prd_documents').update({
-              content_markdown: fullContent,
-              version: (existingDoc.version || 1) + 1,
-            }).eq('project_id', id);
-          } else {
-            await supabase.from('prd_documents').insert({
-              project_id: id,
-              content_markdown: fullContent,
-              version: 1,
-            });
+        if (isRealPrd) {
+          try {
+            const { data: existingDoc } = await supabase
+              .from('prd_documents')
+              .select('id, version')
+              .eq('project_id', id)
+              .maybeSingle();
+
+            if (existingDoc) {
+              await supabase.from('prd_documents').update({
+                content_markdown: fullContent,
+                version: (existingDoc.version || 1) + 1,
+              }).eq('project_id', id);
+            } else {
+              await supabase.from('prd_documents').insert({
+                project_id: id,
+                content_markdown: fullContent,
+                version: 1,
+              });
+            }
+
+            await supabase.from('projects').update({ status: 'prd_generated' }).eq('id', id);
+          } catch (error) {
+            console.error('Error saving PRD:', error);
           }
-
-          await supabase.from('projects').update({ status: 'prd_generated' }).eq('id', id);
-        } catch (error) {
-          console.error('Error saving PRD:', error);
+        } else {
+          console.warn('generate-prd: output discarded (not a valid PRD), length=', fullContent.length);
         }
       }
     });
@@ -128,6 +138,6 @@ export async function POST(
       },
     });
   } catch (error: any) {
-    return new Response(error.message || 'Internal Server Error', { status: 500 });
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }

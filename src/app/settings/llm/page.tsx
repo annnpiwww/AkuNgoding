@@ -182,17 +182,6 @@ export default function LlmSettingsPage() {
             </div>
           </div>
 
-          {testResult && (
-            <div className={`p-4 rounded-lg flex items-start gap-3 ${testResult.success ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border border-red-500/20 text-red-400'}`}>
-              {testResult.success ? (
-                <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-              ) : (
-                <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              )}
-              <span className="text-sm">{testResult.message}</span>
-            </div>
-          )}
-
           <div className="flex gap-4 pt-2">
             <button
               type="button"
@@ -205,7 +194,7 @@ export default function LlmSettingsPage() {
               ) : (
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
               )}
-              Test Connection
+              {isTesting ? 'Menguji koneksi...' : 'Test Connection'}
             </button>
             <button
               type="submit"
@@ -220,6 +209,27 @@ export default function LlmSettingsPage() {
               Simpan & Jadikan Aktif
             </button>
           </div>
+
+          {testResult && (
+            <div
+              role="alert"
+              className={`mt-4 p-4 rounded-xl flex items-start gap-3 border-2 ${
+                testResult.success
+                  ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-300'
+                  : 'bg-red-500/15 border-red-500/50 text-red-300'
+              }`}
+            >
+              {testResult.success ? (
+                <svg className="w-6 h-6 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              ) : (
+                <svg className="w-6 h-6 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              )}
+              <div>
+                <p className="font-semibold">{testResult.success ? 'Koneksi Berhasil' : 'Koneksi Gagal'}</p>
+                <p className="text-sm mt-0.5 break-all">{testResult.message}</p>
+              </div>
+            </div>
+          )}
         </form>
       </div>
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/Toast'
 import ReactMarkdown from 'react-markdown'
@@ -16,7 +16,8 @@ const SECTIONS = [
   { id: 'metrik', label: 'Metrik Kesuksesan' }
 ]
 
-export default function GeneratePage({ params }: { params: { id: string } }) {
+export default function GeneratePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
   const [content, setContent] = useState('')
   const [isGenerating, setIsGenerating] = useState(true)
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0)
@@ -47,7 +48,7 @@ export default function GeneratePage({ params }: { params: { id: string } }) {
     setError(null)
     
     try {
-      const res = await fetch(`/api/projects/${params.id}/generate-prd`, {
+      const res = await fetch(`/api/projects/${id}/generate-prd`, {
         method: 'POST'
       })
 
@@ -80,7 +81,7 @@ export default function GeneratePage({ params }: { params: { id: string } }) {
   }
 
   const handleFinish = () => {
-    router.push(`/project/${params.id}/edit`)
+    router.push(`/project/${id}/edit`)
   }
 
   return (

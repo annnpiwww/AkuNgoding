@@ -19,7 +19,7 @@ export async function GET(
     // Verify ownership
     const { data: project } = await supabase
       .from('projects')
-      .select('id')
+      .select('id, title')
       .eq('id', id)
       .eq('user_id', user.id)
       .single();
@@ -32,7 +32,7 @@ export async function GET(
       .order('created_at', { ascending: true });
 
     if (error) throw error;
-    return NextResponse.json(data);
+    return NextResponse.json({ project, messages: data });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -69,8 +69,9 @@ export async function POST(
       return NextResponse.json({ error: 'Please configure active LLM settings first' }, { status: 400 });
     }
 
-    const userMessageContent = body.message;
-    if (!userMessageContent) {
+    const userMessageContent = body.message || '';
+    const isNextQuestion = body.action === 'next_question';
+    if (!isNextQuestion && !userMessageContent) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
@@ -82,7 +83,7 @@ export async function POST(
 
     const messages: ChatMessage[] = [
       { role: 'system', content: CLARIFICATION_SYSTEM_PROMPT },
-      { role: 'system', content: `Project Idea Context:\n${project.idea_input}` },
+      { role: 'user', content: `Project Idea Context:\n${project.idea_input}` },
     ];
 
     if (history) {
@@ -93,14 +94,25 @@ export async function POST(
     messages.push({ role: 'user', content: userMessageContent });
 
     const response = await chatCompletion(llmConfig, messages);
-    const aiResponseContent = response.choices[0]?.message?.content || '';
+    let aiResponseContent = response.choices[0]?.message?.content || '';
+
+    // Guard: model `PRD` bias langsung generate PRD saat clarify. Kalau output
+    // keliatan PRD (heading markdown / terlalu panjang), anggap sudah cukup
+    // jelas dan ganti dg sentinel biar history clarify tetap bersih (context
+    // yang nanti dipakai generate-prd tidak terkontaminasi blok PRD).
+    const looksLikePrd = /^#{1,3}\s/m.test(aiResponseContent) || aiResponseContent.length > 400;
+    if (looksLikePrd) {
+      aiResponseContent = 'READY_TO_GENERATE_PRD';
+    }
 
     // Save user message
-    await supabase.from('clarification_messages').insert({
-      project_id: id,
-      role: 'user',
-      content: userMessageContent,
-    });
+    if (!isNextQuestion) {
+      await supabase.from('clarification_messages').insert({
+        project_id: id,
+        role: 'user',
+        content: userMessageContent,
+      });
+    }
 
     // Save AI response
     const { data: aiMessage, error: aiError } = await supabase.from('clarification_messages').insert({
@@ -122,9 +134,12 @@ export async function POST(
       await supabase.from('projects').update({ status: 'klarifikasi' }).eq('id', id);
     }
 
+    const readyToGenerate = aiResponseContent === 'READY_TO_GENERATE_PRD' || (!!count && count >= 5);
+
     return NextResponse.json({
       message: aiMessage,
-      ai_message_count: count || 0
+      ai_message_count: count || 0,
+      readyToGenerate: !!readyToGenerate,
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
         base_url,
         api_key_encrypted: encrypt(api_key),
         model_name,
-        is_active: is_active || false,
+        is_active: is_active ?? true,
       })
       .select()
       .single();

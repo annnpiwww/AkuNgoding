@@ -1,30 +1,30 @@
 export function extractFeatures(markdown: string): Array<{id: string, name: string, description: string}> {
   const sections = extractSections(markdown);
-  const coreFeaturesSection = sections['3. Core Features'] || '';
+  const frKey = Object.keys(sections).find((k) => /Functional Requirements/i.test(k));
+  const frSection = frKey ? sections[frKey] : '';
 
   const features: Array<{id: string, name: string, description: string}> = [];
-  const lines = coreFeaturesSection.split('\n');
+  const lines = frSection.split('\n');
   
   let isTable = false;
   
   for (const line of lines) {
-    if (line.trim().startsWith('| # |')) {
+    const trimmed = line.trim();
+    if (/^\|[ ]*#/.test(trimmed) || /^\|.*ID/i.test(trimmed)) {
       isTable = true;
       continue;
     }
-    if (isTable && line.trim().startsWith('|---')) {
-      continue;
+    if (isTable && /^\|[\s:|-]+\|/.test(trimmed)) {
+      continue; // separator row
     }
     
-    if (isTable && line.trim().startsWith('|')) {
-      const parts = line.split('|').map(s => s.trim());
-      if (parts.length >= 4) {
-        const id = parts[1];
-        const name = parts[2];
-        const description = parts[3];
-        if (id && name) {
-          features.push({ id, name, description });
-        }
+    if (isTable && trimmed.startsWith('|')) {
+      const raw = trimmed.split('|').map(s => s.trim());
+      const id = raw[1] || '';
+      const name = raw[2] || '';
+      const description = raw[3] || '';
+      if (id && name && !/^ID$/i.test(id)) {
+        features.push({ id, name, description });
       }
     }
   }
@@ -64,7 +64,9 @@ export function replaceSection(markdown: string, sectionName: string, newContent
 }
 
 export function appendBreakdown(markdown: string, featureName: string, breakdownContent: string): string {
-  const section8Title = '## 8. Feature Breakdown & Tasks';
+  const nums = [...markdown.matchAll(/^##\s+(\d+)\./gm)].map((m) => parseInt(m[1], 10));
+  const nextNum = nums.length ? Math.max(...nums) + 1 : 8;
+  const section8Title = `## ${nextNum}. Feature Breakdown & Tasks`;
   const breakdownItem = `### ${featureName}\n${breakdownContent}\n`;
   
   if (markdown.includes(section8Title)) {
@@ -77,7 +79,8 @@ export function appendBreakdown(markdown: string, featureName: string, breakdown
 export function getBreakdownStatus(markdown: string, features: Array<{id: string, name: string}>): Record<string, boolean> {
   const status: Record<string, boolean> = {};
   const sections = extractSections(markdown);
-  const breakdownSection = sections['8. Feature Breakdown & Tasks'] || '';
+  const breakdownKey = Object.keys(sections).find((k) => k.includes('Feature Breakdown & Tasks')) || '';
+  const breakdownSection = sections[breakdownKey] || '';
   
   for (const feature of features) {
     status[feature.id] = breakdownSection.includes(`### ${feature.name}`);
