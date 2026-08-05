@@ -91,7 +91,13 @@ export async function POST(
         messages.push({ role: msg.role === 'ai' ? 'assistant' : 'user', content: msg.content });
       }
     }
-    messages.push({ role: 'user', content: userMessageContent });
+    
+    // For next_question action, use explicit instruction instead of empty message
+    const requestContent = isNextQuestion 
+      ? 'Buatkan 3-8 pertanyaan klarifikasi untuk memahami kebutuhan project ini secara detail. Output dalam format JSON array sesuai instruksi system prompt.'
+      : userMessageContent;
+    
+    messages.push({ role: 'user', content: requestContent });
 
     // Retry loop with validation for structured questions (min 3 on first turn)
     let aiResponseContent = '';
