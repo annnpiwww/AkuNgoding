@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ...data, api_key_encrypted: undefined });
   } catch (error: any) {
+    console.error('[LLM Settings POST Error]', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
