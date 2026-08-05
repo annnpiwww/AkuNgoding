@@ -111,7 +111,8 @@ export async function POST(
       attempts++;
       
       const response = await chatCompletion(llmConfig, messages, { 
-        response_format: { type: "json_object" } 
+        response_format: { type: "json_object" },
+        max_tokens: 2000  // Prevent Vercel timeout on long responses
       });
       aiResponseContent = response.choices[0]?.message?.content || '';
 
