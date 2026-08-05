@@ -23,7 +23,7 @@ export async function getActiveLlmConfig(userId: string): Promise<LlmConfig | nu
   // Fallback to user preset configuration if no settings in DB yet
   return {
     baseUrl: 'http://100.106.72.4:20129/v1',
-    apiKey: 'sk-23a9722ed5683fbd-128c9b-116f023c',
+    apiKey: 'sk-23a9722ed5683fbd-816ddb-6268eeec',
     model: 'PRD',
   };
 }
