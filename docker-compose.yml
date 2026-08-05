@@ -23,6 +23,9 @@ services:
       - .env.production
     volumes:
       - ./logs:/app/logs
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     networks:
       - akungoding-network
     healthcheck:
