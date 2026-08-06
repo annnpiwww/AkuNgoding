@@ -45,10 +45,24 @@ Buatkan mermaid flowchart TD.`;
     const decoder = new TextDecoder();
 
     const transformStream = new TransformStream({
-      transform(chunk, controller) {
+      async transform(chunk, controller) {
         const text = decoder.decode(chunk, { stream: true });
-        fullMermaid += text;
-        controller.enqueue(chunk);
+        const lines = text.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+            try {
+              const data = JSON.parse(line.slice(6));
+              const content = data.choices[0]?.delta?.content || '';
+              if (content) {
+                fullMermaid += content;
+                controller.enqueue(encoder.encode(content));
+              }
+            } catch (e) {
+              // Ignore parse error
+            }
+          }
+        }
       },
       async flush() {
         if (fullMermaid) {
