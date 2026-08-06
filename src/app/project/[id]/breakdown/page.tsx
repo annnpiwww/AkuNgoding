@@ -39,9 +39,9 @@ const STATUS_META: Record<TaskStatus, { label: string; cls: string; dot: string 
 
 const NEXT_STATUS: Record<TaskStatus, TaskStatus> = {
   todo: 'in_progress',
-  in_progress: 'review',
+  in_progress: 'done',
+  done: 'review',
   review: 'done',
-  done: 'todo',
 }
 
 export default function BreakdownPage({ params }: { params: Promise<{ id: string }> }) {
@@ -430,7 +430,7 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
                   <h4 className="text-sm font-medium text-white mb-1">{task.title}</h4>
                   {task.detail && <p className="text-xs text-slate-400 line-clamp-2">{task.detail}</p>}
                   <div className="flex items-center gap-2 mt-3">
-                    <button onClick={() => cycleStatus(task)} className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded transition-all">Review</button>
+                    <button onClick={() => cycleStatus(task)} className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded transition-all">Selesai</button>
                     <button onClick={() => generatePrompt(task)} disabled={promptingId === task.id} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded transition-all disabled:opacity-50">
                       {promptingId === task.id ? '...' : task.prompt ? 'View' : 'Gen'}
                     </button>
@@ -467,6 +467,7 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
                   <h4 className="text-sm font-medium text-white mb-1">{task.title}</h4>
                   {task.detail && <p className="text-xs text-slate-400 line-clamp-2">{task.detail}</p>}
                   <div className="flex items-center gap-2 mt-3">
+                    <button onClick={() => cycleStatus(task)} className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded transition-all">↩ Review</button>
                     <button onClick={() => generatePrompt(task)} disabled={promptingId === task.id} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded transition-all disabled:opacity-50">
                       {promptingId === task.id ? '...' : task.prompt ? 'View' : 'Gen'}
                     </button>
