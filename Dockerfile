@@ -9,7 +9,7 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json ./
 # Install ALL dependencies (including devDependencies for build)
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 # Build stage
 FROM base AS builder
@@ -32,7 +32,7 @@ RUN npm run build:production
 
 # Build MCP server (dipakai /api/mcp/status utk cek koneksi MCP)
 WORKDIR /app/mcp-server
-RUN npm ci && npm run build
+RUN npm ci --legacy-peer-deps && npm run build
 WORKDIR /app
 
 # Production image
