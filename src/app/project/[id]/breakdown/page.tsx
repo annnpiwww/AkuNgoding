@@ -6,7 +6,7 @@ import { useToast } from '@/components/Toast'
 import { createClient } from '@/lib/supabase/client'
 import TaskPromptTutorial from '@/components/TaskPromptTutorial'
 
-type TaskStatus = 'todo' | 'in_progress' | 'done' | 'failed'
+type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done'
 
 interface Task {
   id: string
@@ -31,17 +31,17 @@ interface MCPStatus {
 }
 
 const STATUS_META: Record<TaskStatus, { label: string; cls: string; dot: string }> = {
-  todo: { label: 'Todo', cls: 'bg-[#1a1a2e] border-[#2a2a3e] text-slate-300', dot: 'bg-slate-500' },
+  todo: { label: 'Todo', cls: 'bg-slate-500/10 border-slate-500/30 text-slate-300', dot: 'bg-slate-500' },
   in_progress: { label: 'In Progress', cls: 'bg-amber-500/10 border-amber-500/30 text-amber-300', dot: 'bg-amber-500' },
+  review: { label: 'Review', cls: 'bg-blue-500/10 border-blue-500/30 text-blue-300', dot: 'bg-blue-500' },
   done: { label: 'Done', cls: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400', dot: 'bg-emerald-500' },
-  failed: { label: 'Failed', cls: 'bg-red-500/10 border-red-500/30 text-red-400', dot: 'bg-red-500' },
 }
 
 const NEXT_STATUS: Record<TaskStatus, TaskStatus> = {
   todo: 'in_progress',
-  in_progress: 'done',
+  in_progress: 'review',
+  review: 'done',
   done: 'todo',
-  failed: 'todo',
 }
 
 export default function BreakdownPage({ params }: { params: Promise<{ id: string }> }) {
@@ -326,7 +326,7 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
           <div className="bg-[#12121a] border border-[#2a2a3e] rounded-t-xl px-4 py-3 flex items-center justify-between">
             <h3 className="font-semibold text-white flex items-center gap-2">
               <span className="text-lg">📝</span>
-              Task
+              Todo
             </h3>
             <span className="text-xs text-slate-400 bg-slate-500/10 px-2 py-1 rounded">
               {visible.filter(t => t.status === 'todo').length}
@@ -358,12 +358,12 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
           </div>
         </div>
 
-        {/* Column 2: Dikerjakan (in_progress) */}
+        {/* Column 2: In Progress (in_progress) */}
         <div className="flex flex-col h-full">
           <div className="bg-[#12121a] border border-amber-500/30 rounded-t-xl px-4 py-3 flex items-center justify-between">
             <h3 className="font-semibold text-amber-300 flex items-center gap-2">
               <span className="text-lg">⚡</span>
-              Dikerjakan
+              In Progress
             </h3>
             <span className="text-xs text-amber-300 bg-amber-500/10 px-2 py-1 rounded">
               {visible.filter(t => t.status === 'in_progress').length}
@@ -384,7 +384,7 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
                   <h4 className="text-sm font-medium text-white mb-1">{task.title}</h4>
                   {task.detail && <p className="text-xs text-slate-400 line-clamp-2">{task.detail}</p>}
                   <div className="flex items-center gap-2 mt-3">
-                    <button onClick={() => cycleStatus(task)} className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded transition-all">Done</button>
+                    <button onClick={() => cycleStatus(task)} className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded transition-all">Review</button>
                     <button onClick={() => generatePrompt(task)} disabled={promptingId === task.id} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded transition-all disabled:opacity-50">
                       {promptingId === task.id ? '...' : task.prompt ? 'View' : 'Gen'}
                     </button>
@@ -395,12 +395,12 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
           </div>
         </div>
 
-        {/* Column 3: Selesai (done) */}
+        {/* Column 3: Done (done) */}
         <div className="flex flex-col h-full">
           <div className="bg-[#12121a] border border-emerald-500/30 rounded-t-xl px-4 py-3 flex items-center justify-between">
             <h3 className="font-semibold text-emerald-300 flex items-center gap-2">
               <span className="text-lg">✅</span>
-              Selesai
+              Done
             </h3>
             <span className="text-xs text-emerald-300 bg-emerald-500/10 px-2 py-1 rounded">
               {visible.filter(t => t.status === 'done').length}
@@ -431,33 +431,33 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
           </div>
         </div>
 
-        {/* Column 4: Gagal (failed) */}
+        {/* Column 4: Review (review) */}
         <div className="flex flex-col h-full">
-          <div className="bg-[#12121a] border border-red-500/30 rounded-t-xl px-4 py-3 flex items-center justify-between">
-            <h3 className="font-semibold text-red-300 flex items-center gap-2">
-              <span className="text-lg">❌</span>
-              Gagal
+          <div className="bg-[#12121a] border border-blue-500/30 rounded-t-xl px-4 py-3 flex items-center justify-between">
+            <h3 className="font-semibold text-blue-300 flex items-center gap-2">
+              <span className="text-lg">🔍</span>
+              Review
             </h3>
-            <span className="text-xs text-red-300 bg-red-500/10 px-2 py-1 rounded">
-              {visible.filter(t => t.status === 'failed').length}
+            <span className="text-xs text-blue-300 bg-blue-500/10 px-2 py-1 rounded">
+              {visible.filter(t => t.status === 'review').length}
             </span>
           </div>
-          <div className="flex-1 overflow-y-auto bg-[#0a0a0f] border-x border-b border-red-500/30 rounded-b-xl p-3 space-y-2">
+          <div className="flex-1 overflow-y-auto bg-[#0a0a0f] border-x border-b border-blue-500/30 rounded-b-xl p-3 space-y-2">
             {loadingTasks ? (
               <div className="text-center text-slate-500 text-sm mt-4">Loading...</div>
-            ) : visible.filter(t => (t.status as string) === 'failed').length === 0 ? (
+            ) : visible.filter(t => t.status === 'review').length === 0 ? (
               <div className="text-center text-slate-500 text-sm mt-4">Tidak ada task</div>
             ) : (
-              visible.filter(t => (t.status as string) === 'failed').map((task) => (
-                <div key={task.id} className="bg-[#12121a] border border-red-500/30 hover:border-red-500/50 transition-all rounded-lg p-3">
+              visible.filter(t => t.status === 'review').map((task) => (
+                <div key={task.id} className="bg-[#12121a] border border-blue-500/30 hover:border-blue-500/50 transition-all rounded-lg p-3">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs text-red-300 bg-red-500/20 px-2 py-0.5 rounded">{task.feature_name}</span>
+                    <span className="text-xs text-blue-300 bg-blue-500/20 px-2 py-0.5 rounded">{task.feature_name}</span>
                     {task.prompt && <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">✓</span>}
                   </div>
                   <h4 className="text-sm font-medium text-white mb-1">{task.title}</h4>
                   {task.detail && <p className="text-xs text-slate-400 line-clamp-2">{task.detail}</p>}
                   <div className="flex items-center gap-2 mt-3">
-                    <button onClick={() => cycleStatus(task)} className="text-xs bg-amber-600 hover:bg-amber-500 text-white px-2 py-1 rounded transition-all">Retry</button>
+                    <button onClick={() => cycleStatus(task)} className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded transition-all">Approve</button>
                     <button onClick={() => generatePrompt(task)} disabled={promptingId === task.id} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded transition-all disabled:opacity-50">
                       {promptingId === task.id ? '...' : task.prompt ? 'View' : 'Gen'}
                     </button>

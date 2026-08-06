@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getEffectiveUser } from '@/lib/auth-bypass';
 import { getActiveLlmConfig } from '@/lib/api-helpers';
 import { chatCompletionStream, type ChatMessage } from '@/lib/llm-client';
-import { GENERATE_PRD_SYSTEM_PROMPT, PRD_FORMAT_INSTRUCTIONS } from '@/lib/prompts';
+import { AI_READY_SYSTEM_PROMPT, AI_READY_FORMAT_INSTRUCTIONS } from '@/lib/prompts-ai';
 import { extractTasksFromPrd } from '@/lib/task-extractor';
 
 export async function POST(
@@ -49,8 +49,8 @@ export async function POST(
     }
 
     const messages: ChatMessage[] = [
-      { role: 'system', content: GENERATE_PRD_SYSTEM_PROMPT },
-      { role: 'user', content: `${PRD_FORMAT_INSTRUCTIONS}\n\nIMPORTANT CONTEXT:\n- Project Title (use this as app name): "${project.title}"\n- Current Date: ${currentDate}\n\nProduct Idea:\n${project.idea_input}${clarificationContext}` },
+      { role: 'system', content: AI_READY_SYSTEM_PROMPT },
+      { role: 'user', content: `${AI_READY_FORMAT_INSTRUCTIONS}\n\nIMPORTANT CONTEXT:\n- Project Title (use this as app name): "${project.title}"\n- Current Date: ${currentDate}\n\nProduct Idea:\n${project.idea_input}${clarificationContext}` },
     ];
 
     const sseStream = await chatCompletionStream(llmConfig, messages);
@@ -126,6 +126,17 @@ export async function POST(
                   detail: task.detail,
                   status: 'todo',
                   sort_order: index,
+                  task_id: task.task_id || `TASK-${String(index + 1).padStart(3, '0')}`,
+                  epic: task.epic || 'Core',
+                  module: task.module || '',
+                  category: task.category || 'Backend',
+                  priority: task.priority || 'P1',
+                  complexity: task.complexity || 'Medium',
+                  estimated_hours: task.estimated_hours || 1,
+                  depends_on: task.depends_on || '',
+                  labels: task.labels || '',
+                  acceptance_criteria: task.acceptance_criteria || task.detail || '',
+                  files_affected: task.files_affected || '',
                 }));
 
                 const { error: insertError } = await supabase

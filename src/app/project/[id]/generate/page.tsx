@@ -7,31 +7,11 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 const SECTIONS = [
-  { id: 'ringkasan', label: 'Ringkasan Eksekutif' },
-  { id: 'masalah', label: 'Masalah & Tujuan' },
-  { id: 'pengguna', label: 'Target Pengguna' },
-  { id: 'scope', label: 'Scope' },
-  { id: 'mvp-roadmap', label: 'MVP Roadmap' },
-  { id: 'roles', label: 'Roles & Permissions' },
-  { id: 'fitur', label: 'Core Features' },
-  { id: 'business-rules', label: 'Business Rules' },
-  { id: 'flow', label: 'User Flow' },
-  { id: 'ui-requirements', label: 'UI Requirements' },
-  { id: 'state-diagrams', label: 'State Diagrams' },
-  { id: 'data-model', label: 'Data Model' },
-  { id: 'database', label: 'Database Schema & Constraints' },
-  { id: 'api', label: 'API Requirements' },
-  { id: 'validation', label: 'Validation Rules' },
-  { id: 'dependencies', label: 'Dependencies & Integrasi' },
-  { id: 'non-fungsional', label: 'Non-Functional Requirements' },
-  { id: 'assumptions', label: 'Assumptions & Constraints' },
-  { id: 'edge-cases', label: 'Edge Cases & Error Handling' },
-  { id: 'risks', label: 'Risks & Mitigation' },
-  { id: 'testing', label: 'Testing Strategy' },
-  { id: 'dod', label: 'Definition of Done' },
-  { id: 'metrik', label: 'Metrik Kesuksesan' },
-  { id: 'open-questions', label: 'Open Questions' },
-  { id: 'future', label: 'Future Enhancements' }
+  { id: 'executive-summary', label: 'Executive Summary' },
+  { id: 'prd', label: 'Product Requirements' },
+  { id: 'tech-spec', label: 'Technical Specification' },
+  { id: 'ai-rules', label: 'AI Coding Rules' },
+  { id: 'breakdown', label: 'Implementation Breakdown' }
 ]
 
 export default function GeneratePage({ params }: { params: Promise<{ id: string }> }) {

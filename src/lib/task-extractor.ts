@@ -8,6 +8,17 @@ export interface ExtractedTask {
   feature_name: string;
   title: string;
   detail: string;
+  task_id?: string;
+  epic?: string;
+  module?: string;
+  category?: string;
+  priority?: string;
+  complexity?: string;
+  estimated_hours?: number;
+  depends_on?: string;
+  labels?: string;
+  acceptance_criteria?: string;
+  files_affected?: string;
 }
 
 // Helper: Parse tasks from markdown format (fallback when LLM returns markdown instead of JSON)
@@ -42,7 +53,7 @@ function parseTasksFromMarkdown(markdown: string): ExtractedTask[] {
       }
       
       if (title.length > 5) {
-        tasks.push({ feature_name: currentFeature, title, detail: detail.slice(0, 300) });
+        tasks.push({ feature_name: currentFeature, title, detail: detail.slice(0, 300), category: 'Backend', priority: 'P1' });
       }
     }
   }
@@ -50,45 +61,74 @@ function parseTasksFromMarkdown(markdown: string): ExtractedTask[] {
   return tasks;
 }
 
-const TASK_EXTRACTION_SYSTEM_PROMPT = `You are a senior software engineer extracting implementation tasks from a Product Requirements Document (PRD).
+const TASK_EXTRACTION_SYSTEM_PROMPT = `You are a senior software engineer extracting implementation tasks from an AI-Ready Development Specification (markdown).
 
-Your job: Parse the PRD's "Core Features" section (biasanya section 7 atau 16-17) dan/atau "Functional Requirements" section, lalu convert setiap feature/requirement menjadi 2-5 concrete implementation tasks suitable for an AI coding agent or human developer.
+Your job: Parse the "Product Requirements Document" (Functional Requirements) dan "Technical Specification" sections, lalu convert setiap feature/requirement menjadi 2-5 concrete implementation tasks suitable for an AI coding agent (Claude Code, Cursor, Codex) or human developer.
 
 OUTPUT FORMAT (MANDATORY):
-- Output MUST be valid JSON array starting with '[' - NO markdown code fences, NO \`\`\`json wrapper
-- Each task object MUST have exactly these fields:
-  - "feature_name": string - nama fitur/modul dari requirement (e.g. "User Authentication", "Task Management", "Report Export")
-  - "title": string - task title singkat tapi jelas (e.g. "Buat tabel users + migration", "Implement POST /api/auth/login")
-  - "detail": string - acceptance criteria konkrit 2-4 kalimat (e.g. "Tabel users dengan kolom: id, email, password_hash, created_at. Add unique constraint pada email. Include migration rollback.")
+- Output MUST be valid JSON array starting with '[' - NO markdown code fences, NO \`\`\`json wrapper, NO explanatory text
+- Each task object MUST have EXACTLY these fields:
+  - "feature_name": string - nama fitur/modul dari requirement (e.g. "User Authentication", "Task Management")
+  - "title": string - task title singkat tapi actionable (e.g. "Buat tabel users + migration")
+  - "detail": string - acceptance criteria konkrit 2-4 kalimat
+  - "task_id": string - format "TASK-001", "TASK-002" dst. urut
+  - "epic": string - epic utama (e.g. "Core MVP", "Auth")
+  - "module": string - sub-modul (e.g. "Database", "API", "UI")
+  - "category": string - salah satu dari ["DB","API","Backend","Frontend","auth","DevOps","Testing","Documentation","UI/UX","AI Agent"]
+  - "priority": string - "P0" | "P1" | "P2"
+  - "complexity": string - "Low" | "Medium" | "High"
+  - "estimated_hours": number - estimasi jam kerja (decimal, e.g. 2, 4, 8)
+  - "depends_on": string - "TASK-00X" atau "" jika tidak ada dep
+  - "labels": string - komma-separated label (e.g. "auth,security")
+  - "acceptance_criteria": string - kriteria terukur (Given/When/Then atau checklist)
 
 RULES:
 - Group tasks by feature/module (functional requirement)
-- Each functional requirement → 2-5 tasks (frontend, backend, database, API, testing)
+- Each functional requirement → 2-5 tasks (database, API, backend logic, frontend, testing)
 - Task title harus actionable: "Buat X", "Implement Y", "Add Z"
-- Detail harus include acceptance criteria konkrit, bukan vague "sesuai kebutuhan"
-- Output minimal 8 tasks total, maksimal 30 tasks
-- Reply in same language as PRD (Indonesian if PRD is Indonesian)
+- Detail & acceptance_criteria harus konkrit, bukan vague "sesuai kebutuhan"
+- DB tasks SEBELUM API tasks, API SEBELUM Backend, Backend SEBELUM Frontend, Testing SETELAH impl
+- Backend tasks TIDAK BOLEH depend pada Frontend tasks
+- Output minimal 8 tasks total, maksimal 60 tasks
+- Reply in same language as spec (Indonesian if spec is Indonesian)
 
 EXAMPLE OUTPUT:
 [
   {
     "feature_name": "User Authentication",
     "title": "Buat tabel users + migration",
-    "detail": "Tabel users dengan kolom: id (UUID PK), email (unique), password_hash, role, created_at, updated_at. Add index pada email. Include migration rollback."
+    "detail": "Tabel users dengan kolom: id (UUID PK), email (unique), password_hash, role, created_at, updated_at. Add index pada email. Include migration rollback.",
+    "task_id": "TASK-001",
+    "epic": "Core MVP",
+    "module": "Database",
+    "category": "DB",
+    "priority": "P0",
+    "complexity": "Low",
+    "estimated_hours": 2,
+    "depends_on": "",
+    "labels": "auth,db",
+    "acceptance_criteria": "Given user yang baru, when migration dijalankan, then tabel users terbentuk dengan constraint email unique + RLS aktif.",
+    "files_affected": "supabase/migrations/xxx_users.sql"
   },
   {
     "feature_name": "User Authentication",
-    "title": "Implement POST /api/auth/register",
-    "detail": "Endpoint register user baru. Validate email format + uniqueness, hash password dengan bcrypt, return JWT token. Handle error 409 jika email sudah terdaftar."
-  },
-  {
-    "feature_name": "Task Management",
-    "title": "Build TaskList component dengan filter",
-    "detail": "Component React menampilkan list task dengan filter by status (todo/in_progress/done). Include loading state, empty state, dan error state. Support realtime update."
+    "title": "Implement API /api/auth/register",
+    "detail": "Endpoint register user. Validate email format + uniqueness, hash password (bcrypt), return JWT. Handle 409 jika email sudah terdaftar.",
+    "task_id": "TASK-002",
+    "epic": "Core MVP",
+    "module": "API",
+    "category": "API",
+    "priority": "P0",
+    "complexity": "Medium",
+    "estimated_hours": 4,
+    "depends_on": "TASK-001",
+    "labels": "auth,api",
+    "acceptance_criteria": "When user POST /api/auth/register dengan email baru, maka response 201 + JWT. When email sudah ada, 409.",
+    "files_affected": "src/app/api/auth/register/route.ts"
   }
 ]
 
-Now extract implementation tasks from the PRD below. Output JSON array only, no other text.`;
+Now extract implementation tasks from the specification below. Output the JSON array only, no other text.`;
 
 export async function extractTasksFromPrd(
   prdMarkdown: string,
@@ -133,7 +173,7 @@ export async function extractTasksFromPrd(
       const tasks = parseTasksFromMarkdown(content);
       if (tasks.length > 0) {
         console.log(`Extracted ${tasks.length} tasks from markdown format`);
-        return tasks.slice(0, 30);
+        return tasks.slice(0, 60);
       }
       
       console.warn('First 200 chars:', content.slice(0, 200));
@@ -143,14 +183,25 @@ export async function extractTasksFromPrd(
     // Validate structure
     const tasks = Array.isArray(parsed) ? parsed : (parsed.tasks || []);
     const validated = tasks
-      .filter((t: any) => t.feature_name && t.title && typeof t.feature_name === 'string' && typeof t.title === 'string')
+      .filter((t: any) => t && t.title && typeof t.title === 'string')
       .map((t: any) => ({
-        feature_name: String(t.feature_name).trim(),
+        feature_name: String(t.feature_name ?? t.epic ?? 'General').trim(),
         title: String(t.title).trim(),
-        detail: String(t.detail || '').trim(),
+        detail: String(t.detail || t.acceptance_criteria || '').trim(),
+        task_id: t.task_id ? String(t.task_id).trim() : undefined,
+        epic: t.epic ? String(t.epic).trim() : undefined,
+        module: t.module ? String(t.module).trim() : undefined,
+        category: t.category ? String(t.category).trim() : undefined,
+        priority: t.priority ? String(t.priority).trim() : undefined,
+        complexity: t.complexity ? String(t.complexity).trim() : undefined,
+        estimated_hours: typeof t.estimated_hours === 'number' && !isNaN(t.estimated_hours) ? t.estimated_hours : undefined,
+        depends_on: t.depends_on ? String(t.depends_on).trim() : undefined,
+        labels: t.labels ? (Array.isArray(t.labels) ? t.labels.join(',') : String(t.labels).trim()) : undefined,
+        acceptance_criteria: t.acceptance_criteria ? String(t.acceptance_criteria).trim() : undefined,
+        files_affected: t.files_affected ? String(t.files_affected).trim() : undefined,
       }));
 
-    return validated.slice(0, 30); // Cap at 30 tasks max
+    return validated.slice(0, 60); // Cap at 60 tasks max
   } catch (error: any) {
     console.error('extractTasksFromPrd error:', error.message);
     return [];

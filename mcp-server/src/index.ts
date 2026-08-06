@@ -19,7 +19,7 @@ function log(...args: unknown[]) {
   if (DEBUG) console.error("[akungoding-mcp]", ...args);
 }
 
-const VALID_STATUS = ["todo", "in_progress", "done"] as const;
+const VALID_STATUS = ["todo", "in_progress", "review", "done"] as const;
 
 async function getProjectOrThrow(supabase: SupabaseClient, projectId: string) {
   const { data, error } = await supabase
@@ -34,7 +34,7 @@ async function getProjectOrThrow(supabase: SupabaseClient, projectId: string) {
 async function getTasks(supabase: SupabaseClient, projectId: string) {
   const { data, error } = await supabase
     .from("breakdown_tasks")
-    .select("id, project_id, feature_name, title, detail, prompt, status, sort_order, created_at, updated_at")
+    .select("id, project_id, feature_name, title, detail, prompt, status, sort_order, created_at, updated_at, task_id, epic, module, category, priority, complexity, estimated_hours, depends_on, labels, acceptance_criteria, files_affected")
     .eq("project_id", projectId)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
@@ -83,7 +83,7 @@ server.tool(
 // List tasks
 server.tool(
   "akungoding_list_tasks",
-  "Daftar seluruh task breakdown sebuah project beserta status (todo / in_progress / done) dan prompt-nya.",
+  "Daftar seluruh task breakdown sebuah project beserta status (todo / in_progress / review / done) dan prompt-nya.",
   { project_id: z.string().describe("UUID project di akuNgoding") },
   async ({ project_id }) => {
     const tasks = await getTasks(supabase, project_id);
@@ -101,7 +101,7 @@ server.tool(
   async ({ task_id }) => {
     const { data, error } = await supabase
       .from("breakdown_tasks")
-      .select("id, project_id, feature_name, title, detail, prompt, status, sort_order, created_at, updated_at")
+      .select("id, project_id, feature_name, title, detail, prompt, status, sort_order, created_at, updated_at, task_id, epic, module, category, priority, complexity, estimated_hours, depends_on, labels, acceptance_criteria, files_affected")
       .eq("id", task_id)
       .single();
     if (error || !data) throw new Error(`Task tidak ditemukan: ${task_id}`);
@@ -112,10 +112,10 @@ server.tool(
 // Update task status (sinkronisasi todo <-> agent)
 server.tool(
   "akungoding_update_task_status",
-  "Ubah status sebuah task. Gunakan 'in_progress' saat mulai mengerjakan, dan 'done' ketika selesai. Perubahan langsung tampil realtime di fitur todo akuNgoding.",
+  "Ubah status sebuah task. Gunakan 'in_progress' saat mulai mengerjakan, 'review' saat perlu review, dan 'done' ketika selesai. Perubahan langsung tampil realtime di fitur todo akuNgoding.",
   {
     task_id: z.string().describe("UUID task di tabel breakdown_tasks"),
-    status: z.enum(VALID_STATUS).describe("Status baru: todo, in_progress, atau done"),
+    status: z.enum(VALID_STATUS).describe("Status baru: todo, in_progress, review, atau done"),
   },
   async ({ task_id, status }) => {
     const { data, error } = await supabase
