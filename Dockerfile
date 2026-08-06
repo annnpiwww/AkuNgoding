@@ -40,6 +40,8 @@ ENV PORT=3000
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
+# curl untuk healthcheck (alpine ga include curl by default)
+RUN apk add --no-cache curl
 
 # Copy built app
 COPY --from=builder /app/public ./public
