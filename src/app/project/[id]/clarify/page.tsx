@@ -224,7 +224,10 @@ export default function ClarifyPage({ params }: { params: Promise<{ id: string }
                   </div>
                   <p className="text-white font-medium mb-4">{q.question}</p>
                   <div className="space-y-2">
-                    {q.suggested_answers.map((ans, aIdx) => {
+                    {(q.suggested_answers.includes('Custom (tulis sendiri)')
+                      ? q.suggested_answers
+                      : [...q.suggested_answers, 'Custom (tulis sendiri)']
+                    ).map((ans, aIdx) => {
                       const isCustom = ans === 'Custom (tulis sendiri)'
                       const isSelected = selectedAnswers[qIdx] === ans
                       return (
