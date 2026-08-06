@@ -41,7 +41,14 @@ export default function StructurePage({ params }: { params: Promise<{ id: string
         if (done) break
         const text = decoder.decode(value)
         result += text
-        setDiagram(result.replace(/```mermaid/g, '').replace(/```/g, '').trim())
+        let cleanText = result;
+        const match = cleanText.match(/```(?:mermaid)?([\s\S]*?)```/);
+        if (match) {
+            cleanText = match[1];
+        } else {
+            cleanText = cleanText.replace(/```mermaid/g, '').replace(/```/g, '');
+        }
+        setDiagram(cleanText.trim());
       }
     } catch (e: any) {
       showToast(e.message, 'error')

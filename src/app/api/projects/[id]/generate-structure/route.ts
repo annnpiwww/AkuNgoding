@@ -21,10 +21,11 @@ export async function POST(
     if (!llmConfig) return NextResponse.json({ error: 'Configure active LLM' }, { status: 400 });
 
     const systemPrompt = `Kamu adalah Software Architect. Buat diagram arsitektur Mermaid (flowchart TD) untuk project ini.
-Aturan:
-1. Output HANYA mermaid code, tanpa markdown \`\`\`mermaid atau teks lain.
-2. Harus ada layer Frontend (UI), Backend (API), dan DB.
-3. Node minimal 8-12 yang mewakili halaman atau modul utama.`;
+Aturan WAJIB (STRICT):
+1. Output HANYA mermaid code murni, DILARANG pakai markdown ```mermaid.
+2. Harus diawali dengan kata "flowchart TD" di baris pertama.
+3. Semua teks di dalam node (seperti didalam kurung siku []) DILARANG mengandung karakter khusus seperti kutip ("), koma (,), titik dua (:) atau kurung biasa (!). Gunakan huruf dan spasi saja untuk label.
+4. Jangan tambahkan kata pembuka/penutup.`;
 
     const userPrompt = `
 Idea: ${project.idea_input}
@@ -51,8 +52,14 @@ Buatkan mermaid flowchart TD.`;
       },
       async flush() {
         if (fullMermaid) {
-            let cleanMermaid = fullMermaid.replace(/```mermaid/g, '').replace(/```/g, '').trim();
-            await supabase.from('projects').update({ structure_diagram: cleanMermaid }).eq('id', id);
+            let cleanMermaid = fullMermaid;
+            const match = cleanMermaid.match(/\`\`\`(?:mermaid)?([\s\S]*?)\`\`\`/);
+            if (match) {
+                cleanMermaid = match[1];
+            } else {
+                cleanMermaid = cleanMermaid.replace(/\`\`\`mermaid/g, '').replace(/\`\`\`/g, '');
+            }
+            await supabase.from('projects').update({ structure_diagram: cleanMermaid.trim() }).eq('id', id);
         }
       }
     });
