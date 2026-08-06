@@ -22,7 +22,7 @@ export async function POST(
 
     const systemPrompt = `Kamu adalah Software Architect. Buat diagram arsitektur Mermaid (flowchart TD) untuk project ini.
 Aturan WAJIB (STRICT):
-1. Output HANYA mermaid code murni, DILARANG pakai markdown ```mermaid.
+1. Output HANYA mermaid code murni, DILARANG pakai markdown \`\`\`mermaid.
 2. Harus diawali dengan kata "flowchart TD" di baris pertama.
 3. Semua teks di dalam node (seperti didalam kurung siku []) DILARANG mengandung karakter khusus seperti kutip ("), koma (,), titik dua (:) atau kurung biasa (!). Gunakan huruf dan spasi saja untuk label.
 4. Jangan tambahkan kata pembuka/penutup.`;
