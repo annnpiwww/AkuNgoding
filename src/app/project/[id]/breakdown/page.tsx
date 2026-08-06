@@ -67,6 +67,7 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
   const [showMcp, setShowMcp] = useState(false)
 
   const [generatingAll, setGeneratingAll] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
   const [showTutorial, setShowTutorial] = useState(false)
 
   const channelRef = useRef<any>(null)
@@ -250,6 +251,24 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
     }
   }
 
+  const generateTasksFromPrd = async () => {
+    setRegenerating(true)
+    try {
+      const res = await fetch(`/api/projects/${id}/tasks/regenerate`, {
+        method: 'POST'
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Gagal generate tasks dari PRD')
+
+      showToast(data.message || `${data.generated} task berhasil dibuat`, 'success')
+      await loadTasks()
+    } catch (e: any) {
+      showToast(e.message || 'Gagal generate tasks dari PRD', 'error')
+    } finally {
+      setRegenerating(false)
+    }
+  }
+
   return (
     <div className="h-[calc(100vh-120px)] flex flex-col gap-4">
       {/* Header */}
@@ -263,13 +282,23 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
           <span className="text-sm font-medium text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
             {totalDone}/{tasks.length} done
           </span>
-          <button
-            onClick={generateAllPrompts}
-            disabled={generatingAll || tasks.length === 0}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition-all disabled:opacity-50 whitespace-nowrap"
-          >
-            {generatingAll ? 'Generating...' : '⚡ Generate All Prompts'}
-          </button>
+          {tasks.length === 0 ? (
+            <button
+              onClick={generateTasksFromPrd}
+              disabled={regenerating}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition-all disabled:opacity-50 whitespace-nowrap"
+            >
+              {regenerating ? 'Mengekstrak task dari PRD...' : '⚡ Generate Tasks dari PRD'}
+            </button>
+          ) : (
+            <button
+              onClick={generateAllPrompts}
+              disabled={generatingAll || tasks.length === 0}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition-all disabled:opacity-50 whitespace-nowrap"
+            >
+              {generatingAll ? 'Generating...' : '⚡ Generate All Prompts'}
+            </button>
+          )}
           <button
             onClick={checkMcp}
             disabled={checkingMcp}
@@ -316,6 +345,23 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
               </button>
             )
           })}
+        </div>
+      )}
+
+      {/* 4-Column Task Board */}
+      {tasks.length === 0 && (
+        <div className="border border-indigo-500/30 bg-indigo-500/5 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-indigo-200">Belum ada task breakdown</p>
+            <p className="text-xs text-slate-400 mt-1">Task di-buat otomatis dari PRD yang sudah digenerate. Klik <b>⚡ Generate Tasks dari PRD</b> di atas.</p>
+          </div>
+          <button
+            onClick={generateTasksFromPrd}
+            disabled={regenerating}
+            className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition-all disabled:opacity-50 whitespace-nowrap"
+          >
+            {regenerating ? 'Memproses...' : '⚡ Generate Tasks'}
+          </button>
         </div>
       )}
 
