@@ -30,6 +30,11 @@ ENV LLM_ENCRYPTION_KEY=$LLM_ENCRYPTION_KEY
 # Build Next.js app (without Turbopack to avoid Tailwind v4 issues)
 RUN npm run build:production
 
+# Build MCP server (dipakai /api/mcp/status utk cek koneksi MCP)
+WORKDIR /app/mcp-server
+RUN npm ci && npm run build
+WORKDIR /app
+
 # Production image
 FROM base AS runner
 WORKDIR /app
@@ -47,6 +52,9 @@ RUN apk add --no-cache curl
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Copy MCP server (dist + node_modules + health.cjs) utk /api/mcp/status
+COPY --from=builder --chown=nextjs:nodejs /app/mcp-server ./mcp-server
 
 # Create logs directory
 RUN mkdir -p /app/logs && chown nextjs:nodejs /app/logs
