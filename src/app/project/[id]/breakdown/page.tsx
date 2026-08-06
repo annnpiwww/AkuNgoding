@@ -270,7 +270,7 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
   }
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col gap-4">
+    <div className="h-[calc(100vh-120px)] min-h-[300px] flex flex-col gap-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#12121a] border border-[#2a2a3e] rounded-xl p-4">
         <div>
@@ -366,9 +366,9 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
       )}
 
       {/* 4-Column Task Board */}
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-hidden auto-rows-fr">
         {/* Column 1: Task (todo) */}
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full min-h-0">
           <div className="bg-[#12121a] border border-[#2a2a3e] rounded-t-xl px-4 py-3 flex items-center justify-between">
             <h3 className="font-semibold text-white flex items-center gap-2">
               <span className="text-lg">📝</span>
@@ -378,7 +378,7 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
               {visible.filter(t => t.status === 'todo').length}
             </span>
           </div>
-          <div className="flex-1 overflow-y-auto bg-[#0a0a0f] border-x border-b border-[#2a2a3e] rounded-b-xl p-3 space-y-2">
+          <div className="flex-1 overflow-y-auto min-h-0 bg-[#0a0a0f] border-x border-b border-[#2a2a3e] rounded-b-xl p-3 space-y-2">
             {loadingTasks ? (
               <div className="text-center text-slate-500 text-sm mt-4">Loading...</div>
             ) : visible.filter(t => t.status === 'todo').length === 0 ? (
@@ -405,7 +405,7 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
         </div>
 
         {/* Column 2: In Progress (in_progress) */}
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full min-h-0">
           <div className="bg-[#12121a] border border-amber-500/30 rounded-t-xl px-4 py-3 flex items-center justify-between">
             <h3 className="font-semibold text-amber-300 flex items-center gap-2">
               <span className="text-lg">⚡</span>
@@ -415,7 +415,7 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
               {visible.filter(t => t.status === 'in_progress').length}
             </span>
           </div>
-          <div className="flex-1 overflow-y-auto bg-[#0a0a0f] border-x border-b border-amber-500/30 rounded-b-xl p-3 space-y-2">
+          <div className="flex-1 overflow-y-auto min-h-0 bg-[#0a0a0f] border-x border-b border-amber-500/30 rounded-b-xl p-3 space-y-2">
             {loadingTasks ? (
               <div className="text-center text-slate-500 text-sm mt-4">Loading...</div>
             ) : visible.filter(t => t.status === 'in_progress').length === 0 ? (
@@ -442,7 +442,7 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
         </div>
 
         {/* Column 3: Done (done) */}
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full min-h-0">
           <div className="bg-[#12121a] border border-emerald-500/30 rounded-t-xl px-4 py-3 flex items-center justify-between">
             <h3 className="font-semibold text-emerald-300 flex items-center gap-2">
               <span className="text-lg">✅</span>
@@ -452,7 +452,7 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
               {visible.filter(t => t.status === 'done').length}
             </span>
           </div>
-          <div className="flex-1 overflow-y-auto bg-[#0a0a0f] border-x border-b border-emerald-500/30 rounded-b-xl p-3 space-y-2">
+          <div className="flex-1 overflow-y-auto min-h-0 bg-[#0a0a0f] border-x border-b border-emerald-500/30 rounded-b-xl p-3 space-y-2">
             {loadingTasks ? (
               <div className="text-center text-slate-500 text-sm mt-4">Loading...</div>
             ) : visible.filter(t => t.status === 'done').length === 0 ? (
@@ -478,7 +478,7 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
         </div>
 
         {/* Column 4: Review (review) */}
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full min-h-0">
           <div className="bg-[#12121a] border border-blue-500/30 rounded-t-xl px-4 py-3 flex items-center justify-between">
             <h3 className="font-semibold text-blue-300 flex items-center gap-2">
               <span className="text-lg">🔍</span>
@@ -488,7 +488,7 @@ export default function BreakdownPage({ params }: { params: Promise<{ id: string
               {visible.filter(t => t.status === 'review').length}
             </span>
           </div>
-          <div className="flex-1 overflow-y-auto bg-[#0a0a0f] border-x border-b border-blue-500/30 rounded-b-xl p-3 space-y-2">
+          <div className="flex-1 overflow-y-auto min-h-0 bg-[#0a0a0f] border-x border-b border-blue-500/30 rounded-b-xl p-3 space-y-2">
             {loadingTasks ? (
               <div className="text-center text-slate-500 text-sm mt-4">Loading...</div>
             ) : visible.filter(t => t.status === 'review').length === 0 ? (
