@@ -93,6 +93,11 @@ export async function PATCH(
     if (body.title !== undefined) updateData.title = body.title;
     if (body.idea_input !== undefined) updateData.idea_input = body.idea_input;
     if (body.status !== undefined) updateData.status = body.status;
+    if (body.tech_preference_mode !== undefined) updateData.tech_preference_mode = body.tech_preference_mode;
+    if (body.tech_stack !== undefined) updateData.tech_stack = body.tech_stack;
+    if (body.clarification_answers !== undefined) updateData.clarification_answers = body.clarification_answers;
+    if (body.structure_diagram !== undefined) updateData.structure_diagram = body.structure_diagram;
+    if (body.ui_ux_guidelines !== undefined) updateData.ui_ux_guidelines = body.ui_ux_guidelines;
 
     const { data, error } = await supabase
       .from('projects')
