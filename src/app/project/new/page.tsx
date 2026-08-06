@@ -35,7 +35,7 @@ export default function NewProjectPage() {
 
       if (res.ok) {
         const data = await res.json()
-        router.push(`/project/${data.id}/clarify`)
+        router.push(`/project/${data.id}/tech-preference`)
       } else {
         const error = await res.json()
         showToast(error.error || 'Gagal membuat project', 'error')
