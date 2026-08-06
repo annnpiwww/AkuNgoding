@@ -24,7 +24,7 @@ export async function PATCH(
 
     const updateData: Record<string, any> = {};
     if (body.status !== undefined) {
-      if (!['todo', 'in_progress', 'done'].includes(body.status)) {
+      if (!['todo', 'in_progress', 'review', 'done'].includes(body.status)) {
         return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
       }
       updateData.status = body.status;
