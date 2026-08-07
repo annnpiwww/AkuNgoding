@@ -62,10 +62,9 @@ ATURAN:
 2. JANGAN MEMBUAT RINGKASAN IDE ATAU PRD.
 3. HARUS "type": "multi" atau "single" dengan "options" yang berakhiran "Lainnya" untuk q2 dan seterusnya.`;
 
-    const userPrompt = `Project Idea:\n${project.idea_input}\nTech Stack: ${JSON.stringify(project.tech_stack)}`;
+    const userPrompt = `${systemPrompt}\n\nProject Idea:\n${project.idea_input}\nTech Stack: ${JSON.stringify(project.tech_stack)}`;
 
     const response = await chatCompletion(llmConfig, [
-      { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
     ]);
 

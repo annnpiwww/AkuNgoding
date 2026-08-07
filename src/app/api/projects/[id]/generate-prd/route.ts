@@ -55,8 +55,7 @@ export async function POST(
     }
 
     const messages: ChatMessage[] = [
-      { role: 'system', content: AI_READY_SYSTEM_PROMPT },
-      { role: 'user', content: `${AI_READY_FORMAT_INSTRUCTIONS}\n\nIMPORTANT CONTEXT:\n- Project Title (use this as app name): "${project.title}"\n- Current Date: ${currentDate}\n\nProduct Idea:\n${project.idea_input}\n\nTech Stack:\n${JSON.stringify(project.tech_stack || {})}\n\nClarification Answers:\n${JSON.stringify(project.clarification_answers || [])}\n\nArchitecture Structure Diagram:\n${project.structure_diagram || ''}${clarificationContext}` },
+      { role: 'user', content: `${AI_READY_SYSTEM_PROMPT}\n\n${AI_READY_FORMAT_INSTRUCTIONS}\n\nIMPORTANT CONTEXT:\n- Project Title (use this as app name): "${project.title}"\n- Current Date: ${currentDate}\n\nProduct Idea:\n${project.idea_input}\n\nTech Stack:\n${JSON.stringify(project.tech_stack || {})}\n\nClarification Answers:\n${JSON.stringify(project.clarification_answers || [])}\n\nArchitecture Structure Diagram:\n${project.structure_diagram || ''}${clarificationContext}` },
     ];
 
     const sseStream = await chatCompletionStream(llmConfig, messages);

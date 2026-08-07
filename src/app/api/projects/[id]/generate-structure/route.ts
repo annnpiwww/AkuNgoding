@@ -34,8 +34,7 @@ QA: ${JSON.stringify(project.clarification_answers || [])}
 Buatkan mermaid flowchart TD.`;
 
     const messages: ChatMessage[] = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
+      { role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }
     ];
 
     const stream = await chatCompletionStream(llmConfig, messages);
