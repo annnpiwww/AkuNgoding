@@ -212,6 +212,29 @@ Aturan implementasi untuk AI Coding Agent (Claude Code, Cursor, Codex, Gemini CL
 - Gunakan Server Action (Next.js App Router) utk mutasi state default.
 - Gunakan proper error boundary & fallback state.
 
+
+
+## 4.5 DESIGN INTELLIGENCE & UI/UX GUIDELINES (ANTI-SLOP PROMAX)
+Kamu WAJIB MENCANTUMKAN BAGIAN INI SECARA LENGKAP tanpa peringkasan.
+### 4.5.1 The Rule (Anti-Slop Strict Standards)
+- TIDAK ADA LOREM IPSUM: Selalu gunakan data dummy yang realistis.
+- TIDAK ADA LAYOUT SIMETRIS KOSONG: Buat hierarchy visual. Pisahkan primary area dan secondary area dengan contrast warna background.
+- Micro-Copy: Gunakan label prediktif "Selesaikan Tugas", bukan "Submit". Empty state wajib memiliki ilustrasi dan teks yang ramah.
+- 9-States Komponen: Seluruh komponen interaktif WAJIB mendefinisikan state: Default, Hover, Focus, Active, Disabled, Loading (Gunakan Skeleton, DILARANG pakai Spinner fullscreen), Empty, Error (Inline), Success.
+
+### 4.5.2 Design Tokens (Tailwind CSS variables)
+Berikan panduan token CSS (oklch) untuk warna (Surface, Primary, Border, Text, Danger) dan spacing (4px grid).
+
+### 4.5.3 Component Specs
+Pilih minimal 3 komponen UI utama dari aplikasi ini dan dokumentasikan detailnya menggunakan format ini:
+#### [Nama Komponen]
+- Purpose: [tujuan]
+- Variants: [varian style]
+- States: [penanganan loading, empty, error, dll sesuai rule 9-states]
+- Behavior: [interaksi user]
+- Mobile: [penyesuaian UI untuk mobile]
+
+---
 ---
 
 ## 5. Implementation Breakdown — Template
