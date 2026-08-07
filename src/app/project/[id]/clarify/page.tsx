@@ -1,51 +1,43 @@
 'use client'
 
-import { useState, use } from 'react'
+import { useState, use, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/Toast'
 import Link from 'next/link'
 
-const PREDEFINED_QUESTIONS = [
-  {
-    id: 'q1',
-    text: '1. Ceritakan seseorang yg butuh app ini. Mereka ngapain bwt ngatasi masalahnya?',
-    type: 'text',
-    options: []
-  },
-  {
-    id: 'q2',
-    text: '2. Apa satu hal yg paling penting bwt diselesaikan di kesempatan pertama pake app ini?',
-    type: 'single',
-    options: ['Bwt tugas harian', 'Catat lokasi butuh peremajaan', 'Pinjam alat ke teknisi', 'Lihat jadwal krj', 'Lainnya']
-  },
-  {
-    id: 'q3',
-    text: '3. Pilih 3 fitur yg paling wajib ada di app ini (boleh pilih beberapa):',
-    type: 'multi',
-    options: ['Tugas harian + foto bukti', 'Catat peremajaan lokasi + RAB', 'Pinjam-alat + foto', 'Jadwal dr Google Sheets', 'PWA bs akses dr HP', 'Lainnya']
-  },
-  {
-    id: 'q4',
-    text: '4. Apa keunggulan utama app dibanding cara krj mereka?',
-    type: 'single',
-    options: ['Hemat waktu', 'Bukti jelas', 'Semua jadi satu tempat', 'Lebih rapi', 'Lainnya']
-  },
-  {
-    id: 'q5',
-    text: '5. Apa yg bikin mereka trus pake app tiap hari?',
-    type: 'single',
-    options: ['Pantau progress cpt', 'Gk ada yg kelewat', 'Bukti foto otomatis', 'Gampang akses di HP', 'Lainnya']
-  }
-]
+interface Question {
+  id: string
+  text: string
+  type: 'text' | 'single' | 'multi'
+  options: string[]
+}
 
 export default function ClarifyPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const id = resolvedParams.id
+  const [questions, setQuestions] = useState<Question[]>([])
   const [answers, setAnswers] = useState<Record<string, string | string[] | null>>({})
   const [otherTexts, setOtherTexts] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(true)
   const router = useRouter()
   const { showToast } = useToast()
+
+  useEffect(() => {
+    async function loadQuestions() {
+      try {
+        const res = await fetch(`/api/projects/${id}/generate-questions`, { method: 'POST' })
+        if (!res.ok) throw new Error('Gagal memuat pertanyaan')
+        const data = await res.json()
+        setQuestions(data.questions)
+      } catch (e: any) {
+        showToast(e.message, 'error')
+      } finally {
+        setIsGenerating(false)
+      }
+    }
+    loadQuestions()
+  }, [id])
 
   const handleOptionClick = (qId: string, opt: string, isMulti: boolean) => {
     if (isMulti) {
@@ -64,20 +56,23 @@ export default function ClarifyPage({ params }: { params: Promise<{ id: string }
     setAnswers({ ...answers, [qId]: null })
   }
 
+  // Jawab min 3 (atau max - 1 jika jumlah pertanyaannya sedikit)
   const answeredCount = Object.keys(answers).filter(k => answers[k] !== null && answers[k]?.length !== 0).length
+  const minRequired = Math.min(3, questions.length || 3)
 
   const handleSave = async () => {
-    if (answeredCount < 3) return showToast('Jawab minimal 3 pertanyaan', 'error')
+    if (answeredCount < minRequired) return showToast(`Jawab minimal ${minRequired} pertanyaan`, 'error')
 
-    const finalAnswers = Object.keys(answers).map(k => {
-      let ans = answers[k]
-      // Inject "lainnya" text if selected
-      if (Array.isArray(ans) && ans.includes('Lainnya') && otherTexts[k]) {
-        ans = ans.map(a => a === 'Lainnya' ? `Lainnya: ${otherTexts[k]}` : a)
-      } else if (ans === 'Lainnya' && otherTexts[k]) {
-        ans = `Lainnya: ${otherTexts[k]}`
+    // Append text to final structure
+    const finalAnswers = questions.map(q => {
+      let ans = answers[q.id]
+      if (ans === undefined) ans = null;
+      if (Array.isArray(ans) && ans.includes('Lainnya') && otherTexts[q.id]) {
+        ans = ans.map(a => a === 'Lainnya' ? `Lainnya: ${otherTexts[q.id]}` : a)
+      } else if (ans === 'Lainnya' && otherTexts[q.id]) {
+        ans = `Lainnya: ${otherTexts[q.id]}`
       }
-      return { questionId: k, answer: ans }
+      return { questionId: q.id, question: q.text, answer: ans }
     })
 
     setIsLoading(true)
@@ -96,26 +91,35 @@ export default function ClarifyPage({ params }: { params: Promise<{ id: string }
     }
   }
 
+  if (isGenerating) {
+    return (
+      <div className="max-w-3xl mx-auto p-6 flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <div className="w-10 h-10 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin"></div>
+        <p className="text-slate-400">AI sedang menyusun pertanyaan khusus untuk idemu...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-3xl mx-auto p-6 pb-24 animate-in fade-in duration-500">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Beberapa Pertanyaan</h1>
-          <p className="text-sm text-slate-400 mt-1">Biar PRD-nya lebih akurat.</p>
+          <h1 className="text-2xl font-bold text-white">Pertanyaan Spesifik Ide</h1>
+          <p className="text-sm text-slate-400 mt-1">Jawab agar PRD tidak ambigu dan AI tidak ngarang.</p>
         </div>
         <div className="bg-slate-800 text-emerald-400 font-mono px-3 py-1 rounded text-sm">
-          {answeredCount} / {PREDEFINED_QUESTIONS.length}
+          {answeredCount} / {questions.length}
         </div>
       </div>
 
       <div className="space-y-8">
-        {PREDEFINED_QUESTIONS.map((q) => {
+        {questions.map((q) => {
           const isSkipped = answers[q.id] === null
           return (
             <div key={q.id} className={`p-5 rounded-lg border transition-all ${isSkipped ? 'border-slate-800 opacity-50' : 'border-slate-700 bg-slate-800/30'}`}>
               <div className="flex justify-between gap-4 mb-4">
                 <h3 className="font-medium text-white">{q.text}</h3>
-                <button onClick={() => handleSkip(q.id)} className="text-xs text-slate-400 hover:text-white shrink-0">
+                <button onClick={() => handleSkip(q.id)} className="text-xs text-slate-400 hover:text-white shrink-0 bg-slate-800/50 px-2 py-1 rounded">
                   Lewati
                 </button>
               </div>
@@ -132,7 +136,7 @@ export default function ClarifyPage({ params }: { params: Promise<{ id: string }
 
               {q.type !== 'text' && !isSkipped && (
                 <div className="flex flex-wrap gap-2">
-                  {q.options.map(opt => {
+                  {q.options?.map(opt => {
                     const isSelected = q.type === 'multi' 
                       ? ((answers[q.id] as string[]) || []).includes(opt)
                       : answers[q.id] === opt
@@ -173,7 +177,7 @@ export default function ClarifyPage({ params }: { params: Promise<{ id: string }
         </Link>
         <button
           onClick={handleSave}
-          disabled={isLoading || answeredCount < 3}
+          disabled={isLoading || answeredCount < minRequired}
           className="bg-emerald-600 hover:bg-emerald-500 text-white rounded px-8 py-2.5 font-medium transition-all disabled:opacity-50"
         >
           {isLoading ? 'Load...' : 'Simpan & Lanjut'}
