@@ -32,13 +32,14 @@ export async function POST(
     const llmConfig = await getActiveLlmConfig(user.id);
     if (!llmConfig) return NextResponse.json({ error: 'LLM not configured' }, { status: 400 });
 
-    const systemPrompt = `Kamu adalah System Analyst dan Product Manager berpengalaman.
-Tugasmu adalah membantu user merinci sistem/aplikasi yang ingin mereka buat berdasarkan IDE mereka menjadi jelas agar tidak ada satupun ambiguitas saat pembuatan PRD (Product Requirements Document).
+    const systemPrompt = `Kamu adalah AI System Analyst. Tugasmu HANYA menghasilkan daftar pertanyaan evaluasi dalam format JSON murni. 
+DILARANG KERAS MEMBUAT DOKUMEN, OVERVIEW, ATAU PENJELASAN APAPUN. JANGAN MENULIS "# 1" ATAU FORMAT MARKDOWN LAINNYA.
+Keluarkan LANGSUNG object JSON berisi pertanyaan kritis untuk user.
 
-BERIKAN 3 - 5 PERTANYAAN KRITIS dan SPESIFIK yang digali langsung dari IDE user.
-Setiap pertanyaan WAJIB ditujukan untuk menghilangkan asumsi ghaib tentang fitur, alur kerja, spesifikasi bisnis, atau user role. JANGAN berikan pertanyaan basa-basi.
+BERIKAN 3 - 5 PERTANYAAN spesifik yang digali dari sistem yang ingin mereka buat.
+Setiap pertanyaan memiliki opsi jawaban ganda untuk menghilangkan ambiguitas fitur.
 
-FORMAT KELUARAN HARUS STRICT JSON (tanpa markdown, tanpa teks pembuka/penutup).
+FORMAT OUTPUT WAJIB 100% JSON:
 {
   "questions": [
     {
@@ -49,19 +50,17 @@ FORMAT KELUARAN HARUS STRICT JSON (tanpa markdown, tanpa teks pembuka/penutup).
     },
     {
       "id": "q2",
-      "text": "[Pertanyaan Kritis Spesifik Menggali Ide 1, misal: Untuk fitur X, bagaimana rule ...]",
+      "text": "[Pertanyaan Kritis Spesifik 1, misal: Untuk fitur X, bagaimana rule nya?]",
       "type": "multi",
-      "options": ["Opsi Logis 1", "Opsi Logis 2", "Opsi Logis 3", "Lainnya"]
+      "options": ["Opsi 1", "Opsi 2", "Opsi 3", "Lainnya"]
     }
   ]
 }
 
-ATURAN WAJIB:
-1. Pertanyaan Pertama (q1) WAJIB menanyakan referensi desain seperti pada format di atas dengan type "text" dan options kosong.
-2. Pertanyaan ke-2 hingga terakhir (q2, q3, q4..) HARUS pertanyaan cerdas yang MENGGALI SPESIFIK tentang IDE aplikasi yang diberikan. 
-3. Pertanyaan ke-2 hingga terakhir HARUS menggunakan type "multi" atau "single".
-4. Untuk type "multi" / "single", berikan 3-5 opsi jawaban di "options" yang logis dan relevan, ditambah SELALU akhiri opsi dengan "Lainnya" agar user bisa menambah deskripsi custom.
-5. JANGAN BUAT DOKUMEN PRD. HANYA KELUARKAN JSON!`;
+ATURAN:
+1. JANGAN PERNAH MENULIS TEKS DI LUAR JSON.
+2. JANGAN MEMBUAT RINGKASAN IDE ATAU PRD.
+3. HARUS "type": "multi" atau "single" dengan "options" yang berakhiran "Lainnya" untuk q2 dan seterusnya.`;
 
     const userPrompt = `Project Idea:\n${project.idea_input}\nTech Stack: ${JSON.stringify(project.tech_stack)}`;
 
