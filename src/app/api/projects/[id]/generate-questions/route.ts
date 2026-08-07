@@ -94,6 +94,7 @@ ATURAN WAJIB:
     return NextResponse.json({ questions });
 
   } catch (error: any) {
+    console.error("Top level route error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
