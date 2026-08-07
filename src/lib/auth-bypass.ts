@@ -1,4 +1,4 @@
-export const BYPASS_MODE = true
+export const BYPASS_MODE = process.env.NODE_ENV !== 'production'
 
 export const DEV_MOCK_USER = {
   id: '1379b4a2-f81b-4f16-afd4-957b6af7412c',

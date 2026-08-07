@@ -4,11 +4,18 @@ import { getEffectiveUser } from '@/lib/auth-bypass';
 import { getActiveLlmConfig } from '@/lib/api-helpers';
 import { chatCompletion, type ChatMessage } from '@/lib/llm-client';
 
+import { checkRateLimit } from '@/lib/rate-limit';
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    if (!checkRateLimit(ip + '_questions', 5, 60000)) {
+      return NextResponse.json({ error: 'Terlalu banyak request. Tunggu 1 menit.' }, { status: 429 });
+    }
+
     const supabase = await createClient();
     const user = await getEffectiveUser(supabase);
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -16,6 +23,11 @@ export async function POST(
     const { id } = await params;
     const { data: project } = await supabase.from('projects').select('*').eq('id', id).eq('user_id', user.id).single();
     if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+
+    // Use cached questions if they already exist
+    if (project.clarification_questions && Array.isArray(project.clarification_questions) && project.clarification_questions.length > 0) {
+      return NextResponse.json({ questions: project.clarification_questions });
+    }
 
     const llmConfig = await getActiveLlmConfig(user.id);
     if (!llmConfig) return NextResponse.json({ error: 'LLM not configured' }, { status: 400 });
@@ -80,6 +92,9 @@ ATURAN WAJIB:
       ];
     }
     
+    // Save generated questions to avoid regenerating on refresh
+    await supabase.from('projects').update({ clarification_questions: questions }).eq('id', id);
+
     return NextResponse.json({ questions });
 
   } catch (error: any) {

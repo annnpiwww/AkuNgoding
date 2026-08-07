@@ -62,11 +62,20 @@ DROP POLICY IF EXISTS "Allow all access projects" ON projects;
 DROP POLICY IF EXISTS "Allow all access clarification_messages" ON clarification_messages;
 DROP POLICY IF EXISTS "Allow all access prd_documents" ON prd_documents;
 
--- Permissive RLS Policies (Allow access for both authenticated and bypass mode)
-CREATE POLICY "Allow all access llm_settings" ON llm_settings FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access projects" ON projects FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access clarification_messages" ON clarification_messages FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access prd_documents" ON prd_documents FOR ALL USING (true) WITH CHECK (true);
+-- Secure RLS Policies (Only allow authenticated owners)
+CREATE POLICY "Allow owner access llm_settings" ON llm_settings FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Allow owner access projects" ON projects FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- For child tables, they should either check against owner if they have user_id, 
+-- or we use a subquery to check the project's user_id. 
+-- For MVP, let's keep it checking project owner.
+CREATE POLICY "Allow owner access clarification_messages" ON clarification_messages 
+FOR ALL USING (EXISTS (SELECT 1 FROM projects WHERE projects.id = clarification_messages.project_id AND projects.user_id = auth.uid()))
+WITH CHECK (EXISTS (SELECT 1 FROM projects WHERE projects.id = clarification_messages.project_id AND projects.user_id = auth.uid()));
+
+CREATE POLICY "Allow owner access prd_documents" ON prd_documents 
+FOR ALL USING (EXISTS (SELECT 1 FROM projects WHERE projects.id = prd_documents.project_id AND projects.user_id = auth.uid()))
+WITH CHECK (EXISTS (SELECT 1 FROM projects WHERE projects.id = prd_documents.project_id AND projects.user_id = auth.uid()));
 
 -- Updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -88,6 +97,7 @@ ALTER TABLE projects
 ADD COLUMN IF NOT EXISTS tech_preference_mode VARCHAR(20),
 ADD COLUMN IF NOT EXISTS tech_stack JSONB,
 ADD COLUMN IF NOT EXISTS clarification_answers JSONB,
+ADD COLUMN IF NOT EXISTS clarification_questions JSONB,
 ADD COLUMN IF NOT EXISTS structure_diagram TEXT,
 ADD COLUMN IF NOT EXISTS ui_ux_guidelines TEXT;
 
@@ -108,6 +118,8 @@ CREATE TABLE IF NOT EXISTS breakdown_tasks (
 CREATE INDEX IF NOT EXISTS idx_breakdown_tasks_project_id ON breakdown_tasks(project_id);
 ALTER TABLE breakdown_tasks ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow all access breakdown_tasks" ON breakdown_tasks;
-CREATE POLICY "Allow all access breakdown_tasks" ON breakdown_tasks FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow owner access breakdown_tasks" ON breakdown_tasks 
+FOR ALL USING (EXISTS (SELECT 1 FROM projects WHERE projects.id = breakdown_tasks.project_id AND projects.user_id = auth.uid()))
+WITH CHECK (EXISTS (SELECT 1 FROM projects WHERE projects.id = breakdown_tasks.project_id AND projects.user_id = auth.uid()));
 
 CREATE TRIGGER update_breakdown_tasks_updated_at BEFORE UPDATE ON breakdown_tasks FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

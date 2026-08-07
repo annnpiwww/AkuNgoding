@@ -5,12 +5,18 @@ import { getActiveLlmConfig } from '@/lib/api-helpers';
 import { chatCompletionStream, type ChatMessage } from '@/lib/llm-client';
 import { AI_READY_SYSTEM_PROMPT, AI_READY_FORMAT_INSTRUCTIONS } from '@/lib/prompts-ai';
 import { extractTasksFromPrd } from '@/lib/task-extractor';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    if (!checkRateLimit(ip + '_prd', 3, 60000)) {
+      return NextResponse.json({ error: 'Terlalu banyak permintaan PRD. Tunggu 1 menit.' }, { status: 429 });
+    }
+
     const supabase = await createClient();
     const user = await getEffectiveUser(supabase);
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
