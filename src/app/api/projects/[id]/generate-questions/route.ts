@@ -82,14 +82,10 @@ ATURAN WAJIB:
     try {
       const parsed = JSON.parse(content);
       questions = parsed.questions || parsed;
-      if (!Array.isArray(questions)) throw new Error("Not array");
-    } catch(e) {
+      if (!Array.isArray(questions)) throw new Error("Format JSON bukan array");
+    } catch(e: any) {
       console.error("LLM Parse Error:", content);
-      questions = [
-        { id: 'q1', text: 'Apa satu hal terpenting yang mau diselesaikan?', type: 'text', options: [] },
-        { id: 'q2', text: 'Ceritakan user yang akan memakai ini.', type: 'text', options: [] },
-        { id: 'q3', text: 'Apakah Anda punya referensi desain (link Figma, web inspirasi, dll)?', type: 'text', options: [] }
-      ];
+      throw new Error(`LLM gagal merespons dengan format JSON yang valid. Silakan coba generate ulang. (Pesan LLM: ${e.message})`);
     }
     
     // Save generated questions to avoid regenerating on refresh
