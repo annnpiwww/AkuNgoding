@@ -27,8 +27,8 @@ export default function ClarifyPage({ params }: { params: Promise<{ id: string }
     async function loadQuestions() {
       try {
         const res = await fetch(`/api/projects/${id}/generate-questions`, { method: 'POST' })
-        if (!res.ok) throw new Error('Gagal memuat pertanyaan')
         const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Gagal memuat pertanyaan')
         setQuestions(data.questions)
       } catch (e: any) {
         showToast(e.message, 'error')
