@@ -20,14 +20,15 @@ export async function POST(
     const llmConfig = await getActiveLlmConfig(user.id);
     if (!llmConfig) return NextResponse.json({ error: 'LLM not configured' }, { status: 400 });
 
-    const systemPrompt = `Kamu adalah Senior Product Manager. Analisis ide aplikasi ini secara MENDALAM. Hasilkan pertanyaan klarifikasi KRUSIAL agar PRD tidak berasumsi.
+    const systemPrompt = `Bertindaklah sebagai Product Manager yang teliti. Tugasmu adalah menganalisis ide sistem yang diberikan dan menghasilkan BEBERAPA PERTANYAAN KLARIFIKASI.
+JANGAN MEMBUAT DOKUMEN APAPUN. HANYA HASILKAN PERTANYAAN DALAM FORMAT JSON ARRAY.
 ATURAN WAJIB:
-1. JANGAN PERNAH beri pertanyaan umum! Pertanyaan WAJIB menyebutkan fitur/entitas ide user.
-2. Setiap pertanyaan WAJIB memiliki "options" (quick answers).
+1. JANGAN PERNAH beri pertanyaan umum. Pertanyaan WAJIB menyebutkan fitur/entitas dari ide tersebut.
+2. Setiap pertanyaan WAJIB memiliki "options" (jawaban cepat).
 3. Tipe: 'multi' atau 'single'.
 4. Sertakan opsi "Lainnya" di setiap options.
 5. Pertanyaan ke-1 WAJIB: "Apakah Anda memiliki referensi desain UI/UX (link Figma, web inspirasi)?" (tipe "text").
-6. Keluarkan HANYA format JSON Object tanpa markdown.
+6. Keluarkan HANYA format JSON Array yang valid. JANGAN MENULIS APAPUN SELAIN JSON.
 
 Format JSON WAJIB:
 {
@@ -40,9 +41,9 @@ Format JSON WAJIB:
     },
     {
       "id": "q2",
-      "text": "Terkait [Sebut Fitur], apakah...",
+      "text": "Terkait [Nama Fitur Dari Ide], apakah...",
       "type": "multi",
-      "options": ["Opsi Spesifik A", "Opsi Spesifik B", "Lainnya"]
+      "options": ["Opsi A", "Opsi B", "Lainnya"]
     }
   ]
 }`;
@@ -52,7 +53,7 @@ Format JSON WAJIB:
     const response = await chatCompletion(llmConfig, [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
-    ], { response_format: { type: "json_object" } });
+    ], {});
 
     
     let content = response.choices[0]?.message?.content || '{}';
