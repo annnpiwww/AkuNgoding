@@ -67,11 +67,18 @@ export default function ClarifyPage({ params }: { params: Promise<{ id: string }
     const finalAnswers = questions.map(q => {
       let ans = answers[q.id]
       if (ans === undefined) ans = null;
-      if (Array.isArray(ans) && ans.includes('Lainnya') && otherTexts[q.id]) {
-        ans = ans.map(a => a === 'Lainnya' ? `Lainnya: ${otherTexts[q.id]}` : a)
-      } else if (ans === 'Lainnya' && otherTexts[q.id]) {
-        ans = `Lainnya: ${otherTexts[q.id]}`
+      
+      const customNotes = otherTexts[q.id];
+      if (customNotes) {
+         if (Array.isArray(ans)) {
+            ans = [...ans.filter(a => a !== 'Lainnya'), `Custom: ${customNotes}`];
+         } else if (ans && ans !== 'Lainnya') {
+            ans = `${ans} | Custom: ${customNotes}`;
+         } else {
+            ans = `${customNotes}`;
+         }
       }
+
       return { questionId: q.id, question: q.text, answer: ans }
     })
 
@@ -156,11 +163,10 @@ export default function ClarifyPage({ params }: { params: Promise<{ id: string }
                 </div>
               )}
 
-              {((q.type === 'multi' && ((answers[q.id] as string[]) || []).includes('Lainnya')) ||
-                (q.type === 'single' && answers[q.id] === 'Lainnya')) && !isSkipped && (
+              {!isSkipped && (
                 <input 
                   type="text"
-                  placeholder="Sebutkan lainnya..."
+                  placeholder="Tuliskan jawaban custom / catatan tambahan..."
                   className="w-full mt-3 bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:border-emerald-500 outline-none"
                   value={otherTexts[q.id] || ''}
                   onChange={(e) => setOtherTexts({...otherTexts, [q.id]: e.target.value})}
@@ -168,7 +174,7 @@ export default function ClarifyPage({ params }: { params: Promise<{ id: string }
               )}
             </div>
           )
-        })}
+        })}}
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-slate-900/80 backdrop-blur border-t border-slate-800 flex justify-end gap-3 z-50">

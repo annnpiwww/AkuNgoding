@@ -20,19 +20,28 @@ export async function POST(
     const llmConfig = await getActiveLlmConfig(user.id);
     if (!llmConfig) return NextResponse.json({ error: 'LLM not configured' }, { status: 400 });
 
-    const systemPrompt = `Kamu adalah Product Manager. Analisis ide ini secara mendalam dan hasilkan pertanyaan klarifikasi krusial agar PRD tidak berasumsi sendiri. 
-ATURAN WAJIB: 
-1. Jangan beri pertanyaan umum/template! Harus mengacu langsung pada konteks spesifik ide user (sebutkan fitur/entitas dari ide mereka).
-2. Minimal 4 pertanyaan, maksimal 8. 
-3. WAJIB sisipkan 1 pertanyaan (bebas di urutan ke berapa): "Apakah Anda memiliki referensi desain UI/UX aplikasi lain dari kompetitor atau inspirasi tertentu?" (tipe text).
-4. Keluarkan HANYA format JSON Array yang valid, tanpa teks pembuka/penutup, DILARANG menggunakan markdown code fence. 
+    const systemPrompt = `Kamu adalah Senior Product Manager. Analisis ide aplikasi ini secara MENDALAM. Hasilkan pertanyaan klarifikasi KRUSIAL agar PRD tidak berasumsi.
+ATURAN WAJIB:
+1. JANGAN PERNAH beri pertanyaan umum/template! Pertanyaan WAJIB menyebutkan fitur/entitas/konteks spesifik dari ide user.
+2. Setiap pertanyaan WAJIB memiliki "options" (quick answers) yang spesifik dan relevan dengan pertanyaan tersebut.
+3. Tipe dapat berupa 'multi' (bisa pilih banyak) atau 'single'. Utamakan 'multi' untuk fitur/kebutuhan.
+4. Sertakan opsi "Lainnya" di setiap options.
+5. Pertanyaan ke-1 WAJIB: "Apakah Anda memiliki referensi desain UI/UX (link Figma, web inspirasi kompetitor)?" dengan tipe "text" (options kosong).
+6. Keluarkan HANYA format JSON Array yang valid tanpa markdown! TIDAK boleh ada chat sebelum/sesudah JSON.
+
 Format JSON:
 [
   {
     "id": "q1",
-    "text": "Pertanyaan terarah sesuai ide...",
-    "type": "text", // 'text', 'single', 'multi'
-    "options": ["Opsi A", "Opsi B", "Lainnya"] // isi jika type single/multi.
+    "text": "Apakah Anda memiliki referensi desain UI/UX...",
+    "type": "text",
+    "options": []
+  },
+  {
+    "id": "q2",
+    "text": "Untuk fitur [Nama Fitur Spesifik], apakah...", // Harus relevan!
+    "type": "multi", // quick answers yg bisa dipilih lebih dari satu
+    "options": ["Opsi Spesifik A", "Opsi Spesifik B", "Lainnya"]
   }
 ]`;
 
@@ -43,10 +52,14 @@ Format JSON:
       { role: 'user', content: userPrompt }
     ]);
 
+    
     let content = response.choices[0]?.message?.content || '{}';
-    content = content.replace(/```json/g, '').replace(/```/g, '').trim();
+    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    if (jsonMatch) content = jsonMatch[0];
+    else content = content.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
     
     let questions;
+
     try {
       questions = JSON.parse(content);
     } catch(e) {
