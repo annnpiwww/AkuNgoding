@@ -174,7 +174,7 @@ export default function ClarifyPage({ params }: { params: Promise<{ id: string }
               )}
             </div>
           )
-        })}}
+        })}
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-slate-900/80 backdrop-blur border-t border-slate-800 flex justify-end gap-3 z-50">
