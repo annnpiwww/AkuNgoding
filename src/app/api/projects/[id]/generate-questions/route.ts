@@ -20,46 +20,49 @@ export async function POST(
     const llmConfig = await getActiveLlmConfig(user.id);
     if (!llmConfig) return NextResponse.json({ error: 'LLM not configured' }, { status: 400 });
 
-    const systemPrompt = `Bertindaklah sebagai Product Manager yang teliti. Tugasmu adalah menganalisis ide sistem yang diberikan dan menghasilkan BEBERAPA PERTANYAAN KLARIFIKASI.
-JANGAN MEMBUAT DOKUMEN APAPUN. HANYA HASILKAN PERTANYAAN DALAM FORMAT JSON ARRAY.
-ATURAN WAJIB:
-1. JANGAN PERNAH beri pertanyaan umum. Pertanyaan WAJIB menyebutkan fitur/entitas dari ide tersebut.
-2. Setiap pertanyaan WAJIB memiliki "options" (jawaban cepat).
-3. Tipe: 'multi' atau 'single'.
-4. Sertakan opsi "Lainnya" di setiap options.
-5. Pertanyaan ke-1 WAJIB: "Apakah Anda memiliki referensi desain UI/UX (link Figma, web inspirasi)?" (tipe "text").
-6. Keluarkan HANYA format JSON Array yang valid. JANGAN MENULIS APAPUN SELAIN JSON.
+    const systemPrompt = `Kamu adalah System Analyst dan Product Manager berpengalaman.
+Tugasmu adalah membantu user merinci sistem/aplikasi yang ingin mereka buat berdasarkan IDE mereka menjadi jelas agar tidak ada satupun ambiguitas saat pembuatan PRD (Product Requirements Document).
 
-Format JSON WAJIB:
+BERIKAN 3 - 5 PERTANYAAN KRITIS dan SPESIFIK yang digali langsung dari IDE user.
+Setiap pertanyaan WAJIB ditujukan untuk menghilangkan asumsi ghaib tentang fitur, alur kerja, spesifikasi bisnis, atau user role. JANGAN berikan pertanyaan basa-basi.
+
+FORMAT KELUARAN HARUS STRICT JSON (tanpa markdown, tanpa teks pembuka/penutup).
 {
   "questions": [
     {
       "id": "q1",
-      "text": "Apakah Anda memiliki referensi desain UI/UX?",
+      "text": "Apakah Anda memiliki referensi desain UI/UX (Misal URL Figma, Dribbble, atau nama web inspirasi)?",
       "type": "text",
       "options": []
     },
     {
       "id": "q2",
-      "text": "Terkait [Nama Fitur Dari Ide], apakah...",
+      "text": "[Pertanyaan Kritis Spesifik Menggali Ide 1, misal: Untuk fitur X, bagaimana rule ...]",
       "type": "multi",
-      "options": ["Opsi A", "Opsi B", "Lainnya"]
+      "options": ["Opsi Logis 1", "Opsi Logis 2", "Opsi Logis 3", "Lainnya"]
     }
   ]
-}`;
+}
+
+ATURAN WAJIB:
+1. Pertanyaan Pertama (q1) WAJIB menanyakan referensi desain seperti pada format di atas dengan type "text" dan options kosong.
+2. Pertanyaan ke-2 hingga terakhir (q2, q3, q4..) HARUS pertanyaan cerdas yang MENGGALI SPESIFIK tentang IDE aplikasi yang diberikan. 
+3. Pertanyaan ke-2 hingga terakhir HARUS menggunakan type "multi" atau "single".
+4. Untuk type "multi" / "single", berikan 3-5 opsi jawaban di "options" yang logis dan relevan, ditambah SELALU akhiri opsi dengan "Lainnya" agar user bisa menambah deskripsi custom.
+5. JANGAN BUAT DOKUMEN PRD. HANYA KELUARKAN JSON!`;
 
     const userPrompt = `Project Idea:\n${project.idea_input}\nTech Stack: ${JSON.stringify(project.tech_stack)}`;
 
     const response = await chatCompletion(llmConfig, [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
-    ], {});
+    ]);
 
     
     let content = response.choices[0]?.message?.content || '{}';
     content = content.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
     
-    // Attempt extra extraction if prepended with text
+    // Extract everything between the first { and the last }
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (jsonMatch) content = jsonMatch[0];
 
