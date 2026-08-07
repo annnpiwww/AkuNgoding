@@ -8,6 +8,9 @@ export async function GET(req: NextRequest) {
   const supabase = await createClient();
   const user = await getEffectiveUser(supabase);
   const llmConfig = await getActiveLlmConfig(user.id);
+  if (!llmConfig) {
+    return NextResponse.json({ error: 'No active LLM configuration found' }, { status: 400 });
+  }
   const res = await chatCompletion(llmConfig, [
       { role: 'system', content: 'Keluarkan JSON { "hello": "world" }' },
       { role: 'user', content: 'test' }
