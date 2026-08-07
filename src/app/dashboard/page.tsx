@@ -20,6 +20,7 @@ function getNextActionRoute(id: string, status: string) {
   }
 }
 
+import { redirect } from 'next/navigation'
 import { getEffectiveUser } from '@/lib/auth-bypass'
 
 export default async function DashboardPage() {
@@ -27,7 +28,7 @@ export default async function DashboardPage() {
   const user = await getEffectiveUser(supabase)
 
   if (!user) {
-    return null
+    redirect('/auth/login')
   }
 
   const { data: projects, error } = await supabase
