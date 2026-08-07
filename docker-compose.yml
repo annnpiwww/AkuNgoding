@@ -25,9 +25,6 @@ services:
       - ./logs:/app/logs
     extra_hosts:
       - "zarlpsasmbmjktvygkyf.supabase.co:104.18.38.10"
-    dns:
-      - 8.8.8.8
-      - 8.8.4.4
     networks:
       - akungoding-network
     healthcheck:
