@@ -22,48 +22,53 @@ export async function POST(
 
     const systemPrompt = `Kamu adalah Senior Product Manager. Analisis ide aplikasi ini secara MENDALAM. Hasilkan pertanyaan klarifikasi KRUSIAL agar PRD tidak berasumsi.
 ATURAN WAJIB:
-1. JANGAN PERNAH beri pertanyaan umum/template! Pertanyaan WAJIB menyebutkan fitur/entitas/konteks spesifik dari ide user.
-2. Setiap pertanyaan WAJIB memiliki "options" (quick answers) yang spesifik dan relevan dengan pertanyaan tersebut.
-3. Tipe dapat berupa 'multi' (bisa pilih banyak) atau 'single'. Utamakan 'multi' untuk fitur/kebutuhan.
+1. JANGAN PERNAH beri pertanyaan umum! Pertanyaan WAJIB menyebutkan fitur/entitas ide user.
+2. Setiap pertanyaan WAJIB memiliki "options" (quick answers).
+3. Tipe: 'multi' atau 'single'.
 4. Sertakan opsi "Lainnya" di setiap options.
-5. Pertanyaan ke-1 WAJIB: "Apakah Anda memiliki referensi desain UI/UX (link Figma, web inspirasi kompetitor)?" dengan tipe "text" (options kosong).
-6. Keluarkan HANYA format JSON Array yang valid tanpa markdown! TIDAK boleh ada chat sebelum/sesudah JSON.
+5. Pertanyaan ke-1 WAJIB: "Apakah Anda memiliki referensi desain UI/UX (link Figma, web inspirasi)?" (tipe "text").
+6. Keluarkan HANYA format JSON Object tanpa markdown.
 
-Format JSON:
-[
-  {
-    "id": "q1",
-    "text": "Apakah Anda memiliki referensi desain UI/UX...",
-    "type": "text",
-    "options": []
-  },
-  {
-    "id": "q2",
-    "text": "Untuk fitur [Nama Fitur Spesifik], apakah...", // Harus relevan!
-    "type": "multi", // quick answers yg bisa dipilih lebih dari satu
-    "options": ["Opsi Spesifik A", "Opsi Spesifik B", "Lainnya"]
-  }
-]`;
+Format JSON WAJIB:
+{
+  "questions": [
+    {
+      "id": "q1",
+      "text": "Apakah Anda memiliki referensi desain UI/UX?",
+      "type": "text",
+      "options": []
+    },
+    {
+      "id": "q2",
+      "text": "Terkait [Sebut Fitur], apakah...",
+      "type": "multi",
+      "options": ["Opsi Spesifik A", "Opsi Spesifik B", "Lainnya"]
+    }
+  ]
+}`;
 
     const userPrompt = `Project Idea:\n${project.idea_input}\nTech Stack: ${JSON.stringify(project.tech_stack)}`;
 
     const response = await chatCompletion(llmConfig, [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
-    ]);
+    ], { response_format: { type: "json_object" } });
 
     
     let content = response.choices[0]?.message?.content || '{}';
-    const jsonMatch = content.match(/\[[\s\S]*\]/);
-    if (jsonMatch) content = jsonMatch[0];
-    else content = content.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+    content = content.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
     
-    let questions;
+    // Attempt extra extraction if prepended with text
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) content = jsonMatch[0];
 
+    let questions;
     try {
-      questions = JSON.parse(content);
+      const parsed = JSON.parse(content);
+      questions = parsed.questions || parsed;
+      if (!Array.isArray(questions)) throw new Error("Not array");
     } catch(e) {
-      // Fallback
+      console.error("LLM Parse Error:", content);
       questions = [
         { id: 'q1', text: 'Apa satu hal terpenting yang mau diselesaikan?', type: 'text', options: [] },
         { id: 'q2', text: 'Ceritakan user yang akan memakai ini.', type: 'text', options: [] },
